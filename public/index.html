@@ -637,6 +637,43 @@
     })();
     const localStorage = _safeStorage;
 
+    // Cookie helpers for double-layered persistence fallback (essential for TV browsers that clear localStorage on refresh)
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]*)'));
+      return match ? decodeURIComponent(match[2]) : null;
+    }
+    function setCookie(name, value) {
+      const date = new Date();
+      date.setTime(date.getTime() + (365 * 24 * 60 * 60 * 1000));
+      document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + date.toUTCString() + "; path=/; SameSite=Strict";
+    }
+    function eraseCookie(name) {
+      document.cookie = name + '=; Max-Age=-99999999; path=/; SameSite=Strict';
+    }
+
+    function savePlaylistRegistry() {
+      try {
+        const registryStr = JSON.stringify(playlistRegistry);
+        localStorage.setItem('saved_playlists_registry', registryStr);
+        if (registryStr.length < 4000) {
+          setCookie('saved_playlists_registry', registryStr);
+        }
+      } catch (e) {
+        console.warn('Failed to save playlist registry:', e);
+      }
+    }
+
+    function saveActivePlaylistId(id) {
+      activePlaylistId = id;
+      if (id) {
+        localStorage.setItem('active_playlist_id', id);
+        setCookie('active_playlist_id', id);
+      } else {
+        localStorage.removeItem('active_playlist_id');
+        eraseCookie('active_playlist_id');
+      }
+    }
+
     // Elements
     const playlistText = document.getElementById('playlistText');
     const loadBtn = document.getElementById('loadBtn');
@@ -772,15 +809,23 @@
 
     loadXtreamProfiles();
 
-    // Playlist Registry Management
+    // Playlist Registry Management with double-layered cookie loading
     let playlistRegistry = [];
     try {
-      playlistRegistry = JSON.parse(localStorage.getItem('saved_playlists_registry') || '[]');
+      const localData = localStorage.getItem('saved_playlists_registry');
+      const cookieData = getCookie('saved_playlists_registry');
+      const dataStr = localData || cookieData || '[]';
+      playlistRegistry = JSON.parse(dataStr);
+      
+      // Sync back to local storage if recovered from cookie
+      if (cookieData && !localData) {
+        localStorage.setItem('saved_playlists_registry', cookieData);
+      }
     } catch (e) {
       playlistRegistry = [];
     }
 
-    let activePlaylistId = localStorage.getItem('active_playlist_id') || '';
+    let activePlaylistId = localStorage.getItem('active_playlist_id') || getCookie('active_playlist_id') || '';
 
     // Render registry items in dropdown selector
     function renderPlaylistsSelect() {
@@ -807,8 +852,7 @@
 
       selectTab('local');
       playlistText.value = pl.input;
-      activePlaylistId = id;
-      localStorage.setItem('active_playlist_id', id);
+      saveActivePlaylistId(id);
 
       const cachedContent = localStorage.getItem(`playlist_content_${id}`);
 
@@ -843,12 +887,11 @@
       const defaultId = 'playlist_default';
       const defaultName = 'Default Playlist';
       playlistRegistry.push({ id: defaultId, name: defaultName, input: oldInput });
-      localStorage.setItem('saved_playlists_registry', JSON.stringify(playlistRegistry));
+      savePlaylistRegistry();
       if (oldContent) {
         localStorage.setItem(`playlist_content_${defaultId}`, oldContent);
       }
-      activePlaylistId = defaultId;
-      localStorage.setItem('active_playlist_id', defaultId);
+      saveActivePlaylistId(defaultId);
     }
 
     // Render registry and load active playlist on startup
@@ -925,7 +968,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
         existing.input = input;
       }
 
-      localStorage.setItem('saved_playlists_registry', JSON.stringify(playlistRegistry));
+      savePlaylistRegistry();
       playlistNameInput.value = '';
       
       if (input.startsWith('http://') || input.startsWith('https://')) {
@@ -938,14 +981,12 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
           })
           .then(content => {
             parseAndLoadPlaylist(content, true, id);
-            activePlaylistId = id;
-            localStorage.setItem('active_playlist_id', id);
+            saveActivePlaylistId(id);
             renderPlaylistsSelect();
           })
           .catch(err => {
             alert('Failed to pre-cache online M3U content. The playlist is saved, but local backup cache is unavailable.');
-            activePlaylistId = id;
-            localStorage.setItem('active_playlist_id', id);
+            saveActivePlaylistId(id);
             renderPlaylistsSelect();
           })
           .finally(() => {
@@ -954,8 +995,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
           });
       } else {
         parseAndLoadPlaylist(input, true, id);
-        activePlaylistId = id;
-        localStorage.setItem('active_playlist_id', id);
+        saveActivePlaylistId(id);
         renderPlaylistsSelect();
       }
     });
@@ -976,12 +1016,11 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       }
 
       playlistRegistry = playlistRegistry.filter(item => item.id !== id);
-      localStorage.setItem('saved_playlists_registry', JSON.stringify(playlistRegistry));
+      savePlaylistRegistry();
       localStorage.removeItem(`playlist_content_${id}`);
 
       if (activePlaylistId === id) {
-        activePlaylistId = '';
-        localStorage.removeItem('active_playlist_id');
+        saveActivePlaylistId('');
         playlistText.value = '';
         parsedChannels = [];
         renderChannels();
@@ -1325,8 +1364,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       playlistText.value = '';
       playlistNameInput.value = '';
       parsedChannels = [];
-      activePlaylistId = '';
-      localStorage.removeItem('active_playlist_id');
+      saveActivePlaylistId('');
       savedPlaylistsSelect.value = '';
       
       categorySelect.innerHTML = '<option value="all">All Categories</option>';
