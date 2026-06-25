@@ -635,36 +635,55 @@
         };
       }
     })();
-    const localStorage = _safeStorage;
+    // _safeStorage is used directly below — avoids const/let shadowing of
+    // built-in globals which causes SyntaxError on some TV browser engines
 
     // TV-compatible fetch wrapper - uses XMLHttpRequest as fallback for TVs that lack fetch()
     function tvFetch(url, options) {
+      // Use native fetch first if available, with a fallback to XHR on failure
       if (typeof window.fetch === 'function') {
-        return window.fetch(url, options);
+        return window.fetch(url, options).catch(function(err) {
+          console.warn('[tvFetch] Native fetch failed, falling back to XHR:', err);
+          return xhrFetch(url, options);
+        });
       }
-      // XHR fallback for old TV browsers
+      return xhrFetch(url, options);
+    }
+
+    function xhrFetch(url, options) {
       return new Promise(function(resolve, reject) {
-        var xhr = new XMLHttpRequest();
-        var method = (options && options.method) ? options.method : 'GET';
-        xhr.open(method, url, true);
-        if (options && options.headers) {
-          Object.keys(options.headers).forEach(function(k) {
-            xhr.setRequestHeader(k, options.headers[k]);
-          });
+        try {
+          var xhr = new XMLHttpRequest();
+          var method = (options && options.method) ? options.method : 'GET';
+          xhr.open(method, url, true);
+          xhr.timeout = 30000; // 30s timeout for slow TV networks
+          if (options && options.headers) {
+            var headerKeys = Object.keys(options.headers);
+            for (var i = 0; i < headerKeys.length; i++) {
+              xhr.setRequestHeader(headerKeys[i], options.headers[headerKeys[i]]);
+            }
+          }
+          xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            var ok = xhr.status >= 200 && xhr.status < 300;
+            resolve({
+              ok: ok,
+              status: xhr.status,
+              statusText: xhr.statusText || '',
+              text: function() { return Promise.resolve(xhr.responseText); },
+              json: function() {
+                try { return Promise.resolve(JSON.parse(xhr.responseText)); }
+                catch(e) { return Promise.reject(new Error('Invalid JSON response')); }
+              }
+            });
+          };
+          xhr.ontimeout = function() { reject(new Error('Network request timed out')); };
+          xhr.onerror = function() { reject(new Error('Network request failed')); };
+          var body = (options && options.body) ? options.body : null;
+          xhr.send(body);
+        } catch(e) {
+          reject(new Error('XHR setup failed: ' + e.message));
         }
-        xhr.onreadystatechange = function() {
-          if (xhr.readyState !== 4) return;
-          var ok = xhr.status >= 200 && xhr.status < 300;
-          resolve({
-            ok: ok,
-            status: xhr.status,
-            text: function() { return Promise.resolve(xhr.responseText); },
-            json: function() { return Promise.resolve(JSON.parse(xhr.responseText)); }
-          });
-        };
-        xhr.onerror = function() { reject(new Error('Network request failed')); };
-        var body = (options && options.body) ? options.body : null;
-        xhr.send(body);
       });
     }
 
@@ -685,7 +704,7 @@
     function savePlaylistRegistry() {
       try {
         const registryStr = JSON.stringify(playlistRegistry);
-        localStorage.setItem('saved_playlists_registry', registryStr);
+        _safeStorage.setItem('saved_playlists_registry', registryStr);
         if (registryStr.length < 4000) {
           setCookie('saved_playlists_registry', registryStr);
         }
@@ -697,10 +716,10 @@
     function saveActivePlaylistId(id) {
       activePlaylistId = id;
       if (id) {
-        localStorage.setItem('active_playlist_id', id);
+        _safeStorage.setItem('active_playlist_id', id);
         setCookie('active_playlist_id', id);
       } else {
-        localStorage.removeItem('active_playlist_id');
+        _safeStorage.removeItem('active_playlist_id');
         eraseCookie('active_playlist_id');
       }
     }
@@ -723,9 +742,26 @@
     // In production, default to the deployed Railway backend directly to bypass Vercel serverless limitations
     // (such as the 4.5MB payload size limit, 10s timeout, and proxy buffering of HLS video streams).
     const DEFAULT_PROD_BACKEND = 'https://sono-iptv-backend-production.up.railway.app';
+    // Detect if running on local network (LAN IP or localhost) to use current origin as backend
+    function _detectBaseUrl() {
+      var h = location.hostname;
+      // If we are served via HTTP, we are likely running locally or on a LAN server.
+      // Also catch standard loopback, local hostname patterns, and private IP subnets.
+      if (location.protocol === 'http:' ||
+          h === 'localhost' || 
+          h === '127.0.0.1' || 
+          h === '[::1]' ||
+          !h.includes('.') || 
+          /\.(local|lan|home|internal|test|localhost)$/i.test(h) ||
+          /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) {
+        return location.origin;
+      }
+      return DEFAULT_PROD_BACKEND;
+    }
     let BASE_URL = window.SONO_BACKEND_URL || 
-                   localStorage.getItem('sono_backend_url') || 
-                   (location.hostname === 'localhost' ? 'http://localhost:3000' : DEFAULT_PROD_BACKEND);
+                   _safeStorage.getItem('sono_backend_url') || 
+                   _detectBaseUrl();
+    console.log('[SONO] Backend URL:', BASE_URL, '| Page origin:', location.origin);
     
     const aiContainer = document.getElementById('aiContainer');
     const aiSettingsHeader = document.getElementById('aiSettingsHeader');
@@ -793,9 +829,9 @@
 
     // Load persisted favorites
     const loadFavorites = () => {
-      try { favorites = JSON.parse(localStorage.getItem('favorites') || '[]'); } catch { favorites = []; }
+      try { favorites = JSON.parse(_safeStorage.getItem('favorites') || '[]'); } catch { favorites = []; }
     };
-    const saveFavorites = () => localStorage.setItem('favorites', JSON.stringify(favorites));
+    const saveFavorites = () => _safeStorage.setItem('favorites', JSON.stringify(favorites));
     const isFavorite = (ch) => favorites.some(f => f.url === ch.url);
     const toggleFavorite = (ch) => {
       if (isFavorite(ch)) {
@@ -817,14 +853,14 @@
 
     const loadXtreamProfiles = () => {
       try {
-        xtreamProfiles = JSON.parse(localStorage.getItem('xtream_profiles') || '[]');
+        xtreamProfiles = JSON.parse(_safeStorage.getItem('xtream_profiles') || '[]');
       } catch (e) {
         xtreamProfiles = [];
       }
     };
 
     const saveXtreamProfiles = () => {
-      localStorage.setItem('xtream_profiles', JSON.stringify(xtreamProfiles));
+      _safeStorage.setItem('xtream_profiles', JSON.stringify(xtreamProfiles));
     };
 
     function renderXtreamProfilesSelect() {
@@ -843,20 +879,20 @@
     // Playlist Registry Management with double-layered cookie loading
     let playlistRegistry = [];
     try {
-      const localData = localStorage.getItem('saved_playlists_registry');
+      const localData = _safeStorage.getItem('saved_playlists_registry');
       const cookieData = getCookie('saved_playlists_registry');
       const dataStr = localData || cookieData || '[]';
       playlistRegistry = JSON.parse(dataStr);
       
       // Sync back to local storage if recovered from cookie
       if (cookieData && !localData) {
-        localStorage.setItem('saved_playlists_registry', cookieData);
+        _safeStorage.setItem('saved_playlists_registry', cookieData);
       }
     } catch (e) {
       playlistRegistry = [];
     }
 
-    let activePlaylistId = localStorage.getItem('active_playlist_id') || getCookie('active_playlist_id') || '';
+    let activePlaylistId = _safeStorage.getItem('active_playlist_id') || getCookie('active_playlist_id') || '';
 
     // Render registry items in dropdown selector
     function renderPlaylistsSelect() {
@@ -885,7 +921,7 @@
       playlistText.value = pl.input;
       saveActivePlaylistId(id);
 
-      const cachedContent = localStorage.getItem(`playlist_content_${id}`);
+      const cachedContent = _safeStorage.getItem(`playlist_content_${id}`);
 
       if (triggerLiveFetch && (pl.input.startsWith('http://') || pl.input.startsWith('https://'))) {
         channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px; font-size: 13px;">Loading channels from URL...</div>';
@@ -912,15 +948,15 @@
     }
 
     // Migration from single playlist to registry if registry is empty
-    const oldInput = localStorage.getItem('saved_playlist_input');
-    const oldContent = localStorage.getItem('saved_playlist_content');
+    const oldInput = _safeStorage.getItem('saved_playlist_input');
+    const oldContent = _safeStorage.getItem('saved_playlist_content');
     if (oldInput && playlistRegistry.length === 0) {
       const defaultId = 'playlist_default';
       const defaultName = 'Default Playlist';
       playlistRegistry.push({ id: defaultId, name: defaultName, input: oldInput });
       savePlaylistRegistry();
       if (oldContent) {
-        localStorage.setItem(`playlist_content_${defaultId}`, oldContent);
+        _safeStorage.setItem(`playlist_content_${defaultId}`, oldContent);
       }
       saveActivePlaylistId(defaultId);
     }
@@ -1051,7 +1087,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
 
       playlistRegistry = playlistRegistry.filter(item => item.id !== id);
       savePlaylistRegistry();
-      localStorage.removeItem(`playlist_content_${id}`);
+      _safeStorage.removeItem(`playlist_content_${id}`);
 
       if (activePlaylistId === id) {
         saveActivePlaylistId('');
@@ -1077,7 +1113,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     function parseAndLoadPlaylist(data, shouldSave = true, playlistId = activePlaylistId) {
       if (shouldSave && playlistId) {
         try {
-          localStorage.setItem(`playlist_content_${playlistId}`, data);
+          _safeStorage.setItem(`playlist_content_${playlistId}`, data);
         } catch (e) {
           console.warn('Could not cache raw playlist content in localStorage (Quota exceeded).', e);
         }
@@ -1428,7 +1464,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
         </div>
       `;
       try {
-        const response = await fetch(`${BASE_URL}/search-internet?q=${encodeURIComponent(query)}`);
+        const response = await tvFetch(`${BASE_URL}/search-internet?q=${encodeURIComponent(query)}`);
         if (!response.ok) throw new Error('Search request failed');
         internetChannels = await response.json();
         renderChannels();
@@ -1464,7 +1500,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     });
 
     // AI Configuration & Settings Toggling
-    const storedApiKey = localStorage.getItem('gemini_api_key');
+    const storedApiKey = _safeStorage.getItem('gemini_api_key');
     if (storedApiKey) {
       geminiApiKey.value = storedApiKey;
       settingsGeminiApiKey.value = storedApiKey;
@@ -1472,7 +1508,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     
     saveApiKeyBtn.addEventListener('click', () => {
       const key = geminiApiKey.value.trim();
-      localStorage.setItem('gemini_api_key', key);
+      _safeStorage.setItem('gemini_api_key', key);
       settingsGeminiApiKey.value = key;
       saveApiKeyStatus.style.display = 'block';
       saveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
@@ -1483,7 +1519,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
 
     settingsSaveApiKeyBtn.addEventListener('click', () => {
       const key = settingsGeminiApiKey.value.trim();
-      localStorage.setItem('gemini_api_key', key);
+      _safeStorage.setItem('gemini_api_key', key);
       geminiApiKey.value = key;
       settingsSaveApiKeyStatus.style.display = 'block';
       settingsSaveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
@@ -1493,7 +1529,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     });
 
     // Backend URL settings load & save
-    const storedBackendUrl = localStorage.getItem('sono_backend_url');
+    const storedBackendUrl = _safeStorage.getItem('sono_backend_url');
     if (storedBackendUrl) {
       settingsBackendUrl.value = storedBackendUrl;
     }
@@ -1504,11 +1540,11 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
         url = 'https://' + url;
       }
       if (url) {
-        localStorage.setItem('sono_backend_url', url);
+        _safeStorage.setItem('sono_backend_url', url);
         BASE_URL = url;
       } else {
-        localStorage.removeItem('sono_backend_url');
-        BASE_URL = window.SONO_BACKEND_URL || (location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://sono-iptv-backend-production.up.railway.app');
+        _safeStorage.removeItem('sono_backend_url');
+        BASE_URL = window.SONO_BACKEND_URL || _detectBaseUrl();
       }
       settingsBackendUrl.value = url;
       settingsSaveBackendStatus.style.display = 'block';
@@ -1541,7 +1577,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
 
       try {
         const apiKey = geminiApiKey.value.trim();
-        const response = await fetch(`${BASE_URL}/api/ai-search`, {
+        const response = await tvFetch(`${BASE_URL}/api/ai-search`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1820,7 +1856,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       xtreamLoadBtn.textContent = 'Loading...';
 
       try {
-        const response = await fetch(`${BASE_URL}/api/xtream/fetch`, {
+        const response = await tvFetch(`${BASE_URL}/api/xtream/fetch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ host, username, password, type: activeXtreamType })
@@ -2066,7 +2102,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
                 userVal = profile.username;
                 passVal = profile.password;
               }
-              const response = await fetch(`${BASE_URL}/api/xtream/series-info`, {
+              const response = await tvFetch(`${BASE_URL}/api/xtream/series-info`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -7,26 +7,37 @@ const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 
-// Helper to fetch URL content supporting redirects
-function fetchUrl(targetUrl, redirectCount = 0) {
-  return new Promise((resolve, reject) => {
-    if (redirectCount > 5) {
-      return reject(new Error('Too many redirects'));
+// Disable TLS verification to handle misconfigured or expired IPTV SSL certificates
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// Helper to fetch URL content supporting redirects, automatic decompression (gzip/deflate), and custom User-Agent
+async function fetchUrl(targetUrl) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+  try {
+    const response = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*'
+      }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Server returned status code ${response.status}`);
     }
-    const client = targetUrl.startsWith('https') ? https : http;
-    client.get(targetUrl, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        const redirectUrl = new URL(res.headers.location, targetUrl).href;
-        return resolve(fetchUrl(redirectUrl, redirectCount + 1));
-      }
-      if (res.statusCode !== 200) {
-        return reject(new Error(`Server returned status code ${res.statusCode}`));
-      }
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => resolve(data));
-    }).on('error', reject);
-  });
+
+    return await response.text();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out after 30 seconds');
+    }
+    throw err;
+  }
 }
 
 
@@ -527,68 +538,41 @@ Return ONLY a valid JSON object matching this schema. Do not wrap in markdown co
 });
 
 // Helper function to fetch JSON data from Xtream server with SSL bypass and redirect support
-function fetchXtreamJson(urlStr, redirectCount = 0) {
-  return new Promise((resolve, reject) => {
-    if (redirectCount > 5) {
-      return reject(new Error('Too many redirects'));
-    }
-    let url;
-    try {
-      url = new URL(urlStr);
-    } catch (e) {
-      return reject(new Error('Invalid URL'));
-    }
-    const client = url.protocol === 'https:' ? https : http;
-    
-    const options = {
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
+async function fetchXtreamJson(urlStr) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
+
+  try {
+    const response = await fetch(urlStr, {
+      signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      },
-      timeout: 25000 // 25s timeout for large playlists
-    };
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
+      }
+    });
 
-    if (url.protocol === 'https:') {
-      options.rejectUnauthorized = false; // Bypass self-signed SSL cert issues
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Server returned status code ${response.status}`);
     }
 
-    const req = client.request(options, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        const redirectUrl = new URL(res.headers.location, urlStr).href;
-        return resolve(fetchXtreamJson(redirectUrl, redirectCount + 1));
+    const data = await response.text();
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      if (data.includes('access denied') || data.toLowerCase().includes('authorization failed')) {
+        throw new Error('Access Denied: Invalid credentials or account expired.');
       }
-
-      if (res.statusCode !== 200) {
-        return reject(new Error(`Server returned status code ${res.statusCode}`));
-      }
-
-      const chunks = [];
-      res.on('data', (chunk) => { chunks.push(chunk); });
-      res.on('end', () => {
-        const buffer = Buffer.concat(chunks);
-        const data = buffer.toString('utf8');
-        try {
-          const json = JSON.parse(data);
-          resolve(json);
-        } catch (e) {
-          if (data.includes('access denied') || data.toLowerCase().includes('authorization failed')) {
-            return reject(new Error('Access Denied: Invalid credentials or account expired.'));
-          }
-          reject(new Error('Failed to parse response as JSON. The server might have returned HTML or invalid data.'));
-        }
-      });
-    });
-
-    req.on('error', (err) => reject(err));
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Connection timed out'));
-    });
-    req.end();
-  });
+      throw new Error('Failed to parse response as JSON. The server might have returned HTML or invalid data.');
+    }
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Connection timed out');
+    }
+    throw err;
+  }
 }
 
 // /api/xtream/fetch endpoint to load live, vod, or series
