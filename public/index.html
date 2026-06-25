@@ -430,12 +430,13 @@
     </div>
 
     <div class="search-filter-container">
-        <div class="search-tabs" style="display: flex; gap: 4px; margin-bottom: 8px;">
+        <div class="search-tabs" style="display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap;">
           <button id="tabLocal" class="btn btn-secondary active" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Local</button>
           <button id="tabInternet" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Web</button>
           <button id="tabFavorites" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Favs (<span id="favCount">0</span>)</button>
           <button id="tabAi" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">AI</button>
           <button id="tabXtream" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Xtream</button>
+          <button id="tabSettings" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Settings</button>
         </div>
       <input type="text" id="searchBar" class="search-bar" placeholder="Search local channels...">
       <select id="categorySelect" class="category-select">
@@ -534,6 +535,26 @@
         </div>
       </div>
     </div>
+
+    <!-- Settings Container -->
+    <div id="settingsContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+        <h3 style="margin: 0; color: var(--text-main); font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; align-items: center; gap: 6px;">⚙️ Settings</h3>
+        
+        <!-- Gemini API Key Section -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="settingsGeminiApiKey" style="font-weight: 600; color: var(--text-main); font-size: 12px;">Gemini API Key</label>
+          <p style="color: var(--text-muted); font-size: 11px; margin: 0; line-height: 1.4;">
+            Provide a Gemini API Key to enable AI-powered channel searches and stream filtering. This key is saved locally in your browser.
+          </p>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="password" id="settingsGeminiApiKey" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="AIzaSy... (saved in browser)">
+            <button id="settingsSaveApiKeyBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save Key</button>
+          </div>
+          <div id="settingsSaveApiKeyStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">Key saved successfully!</div>
+        </div>
+      </div>
+    </div>
   </aside>
 
   <!-- Main Display Screen -->
@@ -594,6 +615,8 @@
     const tabInternet = document.getElementById('tabInternet');
     const tabFavorites = document.getElementById('tabFavorites');
     const tabAi = document.getElementById('tabAi');
+    const tabXtream = document.getElementById('tabXtream');
+    const tabSettings = document.getElementById('tabSettings');
 
     // In production (Vercel), API calls use relative URLs (Vercel rewrites proxy them to the backend).
     // For local dev, the backend runs on localhost:3000.
@@ -609,6 +632,11 @@
     const aiChatHistory = document.getElementById('aiChatHistory');
     const aiInput = document.getElementById('aiInput');
     const aiSendBtn = document.getElementById('aiSendBtn');
+
+    const settingsContainer = document.getElementById('settingsContainer');
+    const settingsGeminiApiKey = document.getElementById('settingsGeminiApiKey');
+    const settingsSaveApiKeyBtn = document.getElementById('settingsSaveApiKeyBtn');
+    const settingsSaveApiKeyStatus = document.getElementById('settingsSaveApiKeyStatus');
     
     const playlistNameInput = document.getElementById('playlistNameInput');
     const savePlaylistBtn = document.getElementById('savePlaylistBtn');
@@ -1174,6 +1202,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       tabFavorites.classList.toggle('active', tabName === 'favorites');
       tabAi.classList.toggle('active', tabName === 'ai');
       tabXtream.classList.toggle('active', tabName === 'xtream');
+      tabSettings.classList.toggle('active', tabName === 'settings');
 
       const filterContainer = document.querySelector('.search-filter-container');
       const listWrapper = document.querySelector('.channel-list-wrapper');
@@ -1183,17 +1212,26 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
         listWrapper.style.display = 'none';
         aiContainer.style.display = 'flex';
         xtreamContainer.style.display = 'none';
+        settingsContainer.style.display = 'none';
       } else if (tabName === 'xtream') {
         filterContainer.style.display = 'none';
         listWrapper.style.display = 'none';
         aiContainer.style.display = 'none';
         xtreamContainer.style.display = 'flex';
+        settingsContainer.style.display = 'none';
         renderXtream();
+      } else if (tabName === 'settings') {
+        filterContainer.style.display = 'none';
+        listWrapper.style.display = 'none';
+        aiContainer.style.display = 'none';
+        xtreamContainer.style.display = 'none';
+        settingsContainer.style.display = 'flex';
       } else {
         filterContainer.style.display = 'block';
         listWrapper.style.display = 'block';
         aiContainer.style.display = 'none';
         xtreamContainer.style.display = 'none';
+        settingsContainer.style.display = 'none';
         
         if (tabName === 'local') {
           categorySelect.style.display = 'block';
@@ -1216,6 +1254,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     tabFavorites.addEventListener('click', () => selectTab('favorites'));
     tabAi.addEventListener('click', () => selectTab('ai'));
     tabXtream.addEventListener('click', () => selectTab('xtream'));
+    tabSettings.addEventListener('click', () => selectTab('settings'));
 
     // Clear button listener
     clearBtn.addEventListener('click', () => {
@@ -1292,15 +1331,28 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     const storedApiKey = localStorage.getItem('gemini_api_key');
     if (storedApiKey) {
       geminiApiKey.value = storedApiKey;
+      settingsGeminiApiKey.value = storedApiKey;
     }
     
     saveApiKeyBtn.addEventListener('click', () => {
       const key = geminiApiKey.value.trim();
       localStorage.setItem('gemini_api_key', key);
+      settingsGeminiApiKey.value = key;
       saveApiKeyStatus.style.display = 'block';
       saveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
       setTimeout(() => {
         saveApiKeyStatus.style.display = 'none';
+      }, 3000);
+    });
+
+    settingsSaveApiKeyBtn.addEventListener('click', () => {
+      const key = settingsGeminiApiKey.value.trim();
+      localStorage.setItem('gemini_api_key', key);
+      geminiApiKey.value = key;
+      settingsSaveApiKeyStatus.style.display = 'block';
+      settingsSaveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
+      setTimeout(() => {
+        settingsSaveApiKeyStatus.style.display = 'none';
       }, 3000);
     });
 
