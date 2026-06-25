@@ -568,6 +568,21 @@
           </div>
           <div id="settingsSaveBackendStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">URL saved successfully!</div>
         </div>
+
+        <!-- TV Diagnostics Section -->
+        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 16px;">
+          <h4 style="margin: 0; color: var(--text-main); font-size: 12px; font-weight: 600;">📺 TV Diagnostics</h4>
+          <p style="color: var(--text-muted); font-size: 11px; margin: 0; line-height: 1.4;">
+            Useful information for debugging smart TV browser environments.
+          </p>
+          <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 6px;">
+            <div><strong style="color: var(--accent-hover);">App URL:</strong> <span id="diagAppUrl">-</span></div>
+            <div><strong style="color: var(--accent-hover);">Resolved Backend:</strong> <span id="diagBackendUrl">-</span></div>
+            <div><strong style="color: var(--accent-hover);">User Agent:</strong> <span id="diagUserAgent" style="word-break: break-all;">-</span></div>
+            <div><strong style="color: var(--accent-hover);">Fetch Method:</strong> <span id="diagFetchMethod">-</span></div>
+            <div><strong style="color: var(--accent-hover);">Storage Access:</strong> <span id="diagStorageAccess">-</span></div>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
@@ -640,6 +655,15 @@
 
     // TV-compatible fetch wrapper - uses XMLHttpRequest as fallback for TVs that lack fetch()
     function tvFetch(url, options) {
+      var ua = navigator.userAgent || '';
+      var isTV = /SmartTV|Tizen|Web0S|webOS|Maples|Opera TV|Viera|BRAVIA|LG Browser|PhilipsTV|NetCast|DuneHD|Roku|AppleTV|AFTB|AFTN|MiTV/i.test(ua);
+      
+      // Force XHR on TV browsers for reliable cross-origin/CORS/Csp/cookie fetch behaviors
+      if (isTV) {
+        console.log('[tvFetch] TV user agent detected. Bypassing native fetch for XMLHttpRequest fallback.');
+        return xhrFetch(url, options);
+      }
+
       // Use native fetch first if available, with a fallback to XHR on failure
       if (typeof window.fetch === 'function') {
         return window.fetch(url, options).catch(function(err) {
@@ -758,10 +782,49 @@
       }
       return DEFAULT_PROD_BACKEND;
     }
+    let storedBackendUrl = _safeStorage.getItem('sono_backend_url');
+    if (storedBackendUrl && 
+        location.hostname !== 'localhost' && 
+        location.hostname !== '127.0.0.1' && 
+        location.hostname !== '[::1]') {
+      if (storedBackendUrl.indexOf('localhost') !== -1 || 
+          storedBackendUrl.indexOf('127.0.0.1') !== -1 || 
+          storedBackendUrl.indexOf('[::1]') !== -1) {
+        console.warn('[SONO] Ignoring localhost backend URL saved on a remote client:', storedBackendUrl);
+        storedBackendUrl = null;
+      }
+    }
+
     let BASE_URL = window.SONO_BACKEND_URL || 
-                   _safeStorage.getItem('sono_backend_url') || 
+                   storedBackendUrl || 
                    _detectBaseUrl();
     console.log('[SONO] Backend URL:', BASE_URL, '| Page origin:', location.origin);
+
+    function populateDiagnostics() {
+      try {
+        document.getElementById('diagAppUrl').textContent = location.href;
+        document.getElementById('diagBackendUrl').textContent = BASE_URL;
+        document.getElementById('diagUserAgent').textContent = navigator.userAgent;
+        
+        var ua = navigator.userAgent || '';
+        var isTV = /SmartTV|Tizen|Web0S|webOS|Maples|Opera TV|Viera|BRAVIA|LG Browser|PhilipsTV|NetCast|DuneHD|Roku|AppleTV|AFTB|AFTN|MiTV/i.test(ua);
+        var fetchMethod = (typeof window.fetch === 'function') ? (isTV ? 'XMLHttpRequest (Forced on TV)' : 'fetch (fallback: XHR)') : 'XMLHttpRequest (Native)';
+        document.getElementById('diagFetchMethod').textContent = fetchMethod;
+        
+        var storageAccess = 'Unknown';
+        try {
+          localStorage.setItem('__test_diag__', '1');
+          localStorage.removeItem('__test_diag__');
+          storageAccess = 'localStorage (Native)';
+        } catch(e) {
+          storageAccess = 'In-memory fallback (restricted storage)';
+        }
+        document.getElementById('diagStorageAccess').textContent = storageAccess;
+      } catch(e) {
+        console.warn('Diagnostics setup failed:', e);
+      }
+    }
+    populateDiagnostics();
     
     const aiContainer = document.getElementById('aiContainer');
     const aiSettingsHeader = document.getElementById('aiSettingsHeader');
@@ -927,17 +990,19 @@
         channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px; font-size: 13px;">Loading channels from URL...</div>';
         tvFetch(BASE_URL + '/playlist?url=' + encodeURIComponent(pl.input))
           .then(function(res) {
-            if (!res.ok) throw new Error();
+            if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (res.statusText || 'Failed to fetch'));
             return res.text();
           })
           .then(function(content) {
             parseAndLoadPlaylist(content, true, id);
           })
-          .catch(function() {
+          .catch(function(err) {
+            console.error('Failed to load playlist:', err);
+            var errMsg = err && err.message ? err.message : 'Network request blocked or failed';
             if (cachedContent) {
               parseAndLoadPlaylist(cachedContent, false, id);
             } else {
-              channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px; font-size: 13px;">Failed to load. Please press Load again.</div>';
+              channelList.innerHTML = '<div style="color: #ff4d4d; text-align: center; margin-top: 20px; font-size: 13px; padding: 10px; background: rgba(255, 77, 77, 0.05); border: 1px solid rgba(255, 77, 77, 0.15); border-radius: 6px;">Failed to load playlist from URL.<br><span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 6px; word-break: break-all;"><strong>Resolved URL:</strong> ' + (BASE_URL + '/playlist?url=...') + '<br><strong>Error:</strong> ' + errMsg + '</span></div>';
             }
           });
       } else {
@@ -995,14 +1060,15 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
         loadBtn.textContent = 'Fetching...';
         tvFetch(BASE_URL + '/playlist?url=' + encodeURIComponent(text))
           .then(function(response) {
-            if (!response.ok) throw new Error('Failed to load playlist (status code: ' + response.status + ')');
+            if (!response.ok) throw new Error('HTTP ' + response.status + ': ' + (response.statusText || 'Failed to fetch'));
             return response.text();
           })
           .then(function(playlistContent) {
             parseAndLoadPlaylist(playlistContent, false);
           })
           .catch(function(err) {
-            alert('Error fetching playlist: ' + err.message);
+            var errMsg = err && err.message ? err.message : 'Network request blocked or failed';
+            alert('Error fetching playlist:\n\nURL: ' + BASE_URL + '/playlist\nError: ' + errMsg);
           })
           .then(function() {
             // always runs (no .finally on old browsers)
@@ -1549,6 +1615,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       settingsBackendUrl.value = url;
       settingsSaveBackendStatus.style.display = 'block';
       settingsSaveBackendStatus.textContent = url ? 'Backend URL saved successfully!' : 'Reset to default production backend!';
+      populateDiagnostics();
       setTimeout(() => {
         settingsSaveBackendStatus.style.display = 'none';
       }, 3000);
