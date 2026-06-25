@@ -617,6 +617,25 @@
   </main>
 
   <script>
+    // Safe LocalStorage wrapper to prevent security/quota crashes on restricted Smart TV browsers
+    const _safeStorage = (() => {
+      try {
+        localStorage.setItem('__test__', '1');
+        localStorage.removeItem('__test__');
+        return localStorage;
+      } catch (e) {
+        console.warn('localStorage is not accessible, falling back to in-memory store:', e);
+        return {
+          _data: {},
+          getItem(key) { return this._data[key] || null; },
+          setItem(key, value) { this._data[key] = String(value); },
+          removeItem(key) { delete this._data[key]; },
+          clear() { this._data = {}; }
+        };
+      }
+    })();
+    const localStorage = _safeStorage;
+
     // Elements
     const playlistText = document.getElementById('playlistText');
     const loadBtn = document.getElementById('loadBtn');
@@ -664,6 +683,27 @@
     const savedPlaylistsContainer = document.getElementById('savedPlaylistsContainer');
     const savedPlaylistsSelect = document.getElementById('savedPlaylistsSelect');
     const deletePlaylistBtn = document.getElementById('deletePlaylistBtn');
+    
+    // Xtream Codes elements
+    const xtreamContainer = document.getElementById('xtreamContainer');
+    const xtreamFormHeader = document.getElementById('xtreamFormHeader');
+    const xtreamFormArrow = document.getElementById('xtreamFormArrow');
+    const xtreamFormContent = document.getElementById('xtreamFormContent');
+    const xtreamProfileSelect = document.getElementById('xtreamProfileSelect');
+    const xtreamDeleteProfileBtn = document.getElementById('xtreamDeleteProfileBtn');
+    const xtreamProfileName = document.getElementById('xtreamProfileName');
+    const xtreamHost = document.getElementById('xtreamHost');
+    const xtreamUsername = document.getElementById('xtreamUsername');
+    const xtreamPassword = document.getElementById('xtreamPassword');
+    const xtreamSaveProfileBtn = document.getElementById('xtreamSaveProfileBtn');
+    const xtreamLoadBtn = document.getElementById('xtreamLoadBtn');
+    const xtreamStatusMsg = document.getElementById('xtreamStatusMsg');
+    const xtreamTypeLive = document.getElementById('xtreamTypeLive');
+    const xtreamTypeMovie = document.getElementById('xtreamTypeMovie');
+    const xtreamTypeSeries = document.getElementById('xtreamTypeSeries');
+    const xtreamSearchBar = document.getElementById('xtreamSearchBar');
+    const xtreamCategorySelect = document.getElementById('xtreamCategorySelect');
+    const xtreamChannelList = document.getElementById('xtreamChannelList');
     
     const activeTitle = document.getElementById('activeTitle');
     const activeLogo = document.getElementById('activeLogo');
