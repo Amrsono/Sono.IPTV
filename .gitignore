@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# FFmpeg HLS temp segments (generated at runtime)
+public/streams/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Gemini config (contains API key)
+gemini_config.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

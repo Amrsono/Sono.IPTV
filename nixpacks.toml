@@ -1,0 +1,9 @@
+# Railway deployment config (Nixpacks)
+# Nixpacks automatically detects Node.js.
+# This file adds FFmpeg as a system package.
+
+[phases.setup]
+nixPkgs = ["ffmpeg"]
+
+[start]
+cmd = "node server.js"

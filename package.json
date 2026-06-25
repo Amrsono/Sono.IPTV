@@ -1,0 +1,19 @@
+{
+  "name": "sono-iptv",
+  "version": "1.0.0",
+  "description": "SONO Player — self-hosted IPTV player with FFmpeg stream transcoding proxy and AI channel search",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "fluent-ffmpeg": "^2.1.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "private": true
+}

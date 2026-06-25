@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SONO Player & Stream Proxy</title>
+  
+  <!-- Font and Hls.js CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #0a0b10;
+      --bg-sidebar: #12131b;
+      --bg-card: #1c1d29;
+      --bg-input: #232536;
+      --accent: #5e60ce;
+      --accent-hover: #4ea8de;
+      --accent-neon: #70e000;
+      --text-main: #f8f9fa;
+      --text-muted: #9fa2b2;
+      --border: #2c2e3f;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Sidebar Layout */
+    .sidebar {
+      width: 400px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      flex-shrink: 0;
+      transition: transform 0.3s ease;
+    }
+
+    .sidebar-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: white;
+      box-shadow: 0 0 15px rgba(94, 96, 206, 0.4);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #fff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .playlist-input-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 12px;
+      font-size: 13px;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-input);
+    }
+
+    .btn-secondary.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Channel List Area */
+    .search-filter-container {
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-bar {
+      width: 100%;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .search-bar:focus {
+      border-color: var(--accent);
+    }
+
+    .category-select {
+      width: 100%;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .channel-list-wrapper {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+    }
+
+    .channel-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .channel-item {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+
+    .channel-item:hover {
+      border-color: var(--accent);
+      transform: translateX(4px);
+    }
+
+    .channel-item.active {
+      background: linear-gradient(135deg, rgba(94, 96, 206, 0.15), rgba(78, 168, 222, 0.05));
+      border-color: var(--accent);
+    }
+
+    .channel-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      background-color: var(--bg-input);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--accent-hover);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .channel-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .channel-info {
+      overflow: hidden;
+    }
+
+    .channel-name {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .channel-group {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Main Display Area */
+    .main-canvas {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background-color: var(--bg-main);
+      position: relative;
+    }
+
+    .player-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .active-channel-details {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .active-channel-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .active-channel-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--text-muted);
+    }
+
+    .status-dot.active {
+      background-color: var(--accent-neon);
+      box-shadow: 0 0 10px var(--accent-neon);
+    }
+
+    /* Video Player Frame */
+    .player-container {
+      flex-grow: 1;
+      position: relative;
+      background-color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      max-height: 80vh;
+      outline: none;
+    }
+
+    .player-placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background-color: #08090d;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 40px;
+      z-index: 10;
+    }
+
+    .placeholder-icon {
+      font-size: 48px;
+      color: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    .player-loader {
+      display: none;
+      position: absolute;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      z-index: 9;
+      background-color: rgba(10, 11, 16, 0.85);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.6; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+
+    /* Scrollbar Style */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-sidebar);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-logo">S</div>
+        <h1 class="brand-title">SONO Player</h1>
+      </div>
+      <div class="playlist-input-container">
+        <textarea id="playlistText" placeholder="Paste your raw M3U playlist data here..."></textarea>
+        <div class="controls-row" style="display: flex; gap: 8px;">
+          <button id="loadBtn" class="btn" style="flex-grow: 1;">Load</button>
+          <button id="clearBtn" class="btn btn-secondary" style="flex-grow: 1;" title="Clear loaded channels">Clear</button>
+          <button id="demoBtn" class="btn btn-secondary" title="Load Demo Stream">Demo</button>
+        </div>
+        <!-- Save List Controls -->
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+          <input type="text" id="playlistNameInput" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="Playlist name...">
+          <button id="savePlaylistBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save List</button>
+        </div>
+        <!-- Saved Playlists Selector -->
+        <div id="savedPlaylistsContainer" style="display: none; gap: 8px; align-items: center; margin-top: 4px;">
+          <select id="savedPlaylistsSelect" class="category-select" style="padding: 6px 10px; font-size: 12px; flex-grow: 1; height: 32px;">
+            <option value="">-- Load Saved Playlist --</option>
+          </select>
+          <button id="deletePlaylistBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; height: 32px; border-color: #ef233c; color: #ef233c; display: flex; align-items: center; justify-content: center;" title="Delete selected playlist">🗑️</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="search-filter-container">
+        <div class="search-tabs" style="display: flex; gap: 4px; margin-bottom: 8px;">
+          <button id="tabLocal" class="btn btn-secondary active" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Local</button>
+          <button id="tabInternet" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Web</button>
+          <button id="tabFavorites" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Favs (<span id="favCount">0</span>)</button>
+          <button id="tabAi" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">AI</button>
+          <button id="tabXtream" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Xtream</button>
+        </div>
+      <input type="text" id="searchBar" class="search-bar" placeholder="Search local channels...">
+      <select id="categorySelect" class="category-select">
+        <option value="all">All Categories</option>
+      </select>
+    </div>
+
+    <div class="channel-list-wrapper">
+      <div id="channelList" class="channel-list">
+        <!-- Dynmically loaded channels -->
+      </div>
+    </div>
+
+    <!-- AI Search Container -->
+    <div id="aiContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
+      <!-- Collapsible Settings -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="aiSettingsHeader">
+          <span style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">⚙️ Gemini API Configuration</span>
+          <span id="aiSettingsArrow" style="transition: transform 0.2s;">▼</span>
+        </div>
+        <div id="aiSettingsContent" style="margin-top: 8px; display: none; flex-direction: column; gap: 8px;">
+          <p style="color: var(--text-muted); line-height: 1.4;">Provide a Gemini API Key to enable AI-powered channel searches and stream filtering.</p>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="password" id="geminiApiKey" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="AIzaSy... (saved in browser)">
+            <button id="saveApiKeyBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save Key</button>
+          </div>
+          <div id="saveApiKeyStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">Key saved successfully!</div>
+        </div>
+      </div>
+
+      <!-- Chat History -->
+      <div id="aiChatHistory" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; padding-right: 4px;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text-muted); line-height: 1.4;">
+          👋 <strong>AI Assistant</strong><br>
+          Tell me what streams you want to find (e.g. <em>"Spanish sports channels"</em>, <em>"UK news"</em>, or <em>"children's cartoons"</em>). I'll find them and present play options here!
+        </div>
+      </div>
+
+      <!-- Input box -->
+      <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+        <input type="text" id="aiInput" class="search-bar" style="flex-grow: 1;" placeholder="Ask AI to find channels...">
+        <button id="aiSendBtn" class="btn" style="padding: 10px 14px; flex-shrink: 0;" title="Send prompt">➔</button>
+      </div>
+    </div>
+
+    <!-- Xtream Codes Container -->
+    <div id="xtreamContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
+      <!-- Collapsible Server Config Form -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="xtreamFormHeader">
+          <span style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">🔌 Xtream Codes Server API</span>
+          <span id="xtreamFormArrow" style="transition: transform 0.2s;">▼</span>
+        </div>
+        
+        <div id="xtreamFormContent" style="margin-top: 10px; display: none; flex-direction: column; gap: 8px;">
+          <!-- Account Profile Selector -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="xtreamProfileSelect" class="category-select" style="padding: 6px 10px; font-size: 12px; flex-grow: 1; height: 32px;">
+              <option value="">-- New Server Profile --</option>
+            </select>
+            <button id="xtreamDeleteProfileBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; height: 32px; border-color: #ef233c; color: #ef233c; display: none;" title="Delete Profile">🗑️</button>
+          </div>
+
+          <input type="text" id="xtreamProfileName" class="search-bar" style="padding: 8px 10px; font-size: 12px;" placeholder="Profile Name (e.g. My Provider)">
+          <input type="text" id="xtreamHost" class="search-bar" style="padding: 8px 10px; font-size: 12px;" placeholder="Host URL (e.g. http://host:port)">
+          <input type="text" id="xtreamUsername" class="search-bar" style="padding: 8px 10px; font-size: 12px;" placeholder="Username">
+          <input type="password" id="xtreamPassword" class="search-bar" style="padding: 8px 10px; font-size: 12px;" placeholder="Password">
+          
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+            <button id="xtreamSaveProfileBtn" class="btn btn-secondary" style="flex: 1; padding: 6px 12px; font-size: 12px; height: 32px;">Save Profile</button>
+            <button id="xtreamLoadBtn" class="btn" style="flex: 1.5; padding: 6px 12px; font-size: 12px; height: 32px; font-weight: 700;">Load Streams</button>
+          </div>
+          <div id="xtreamStatusMsg" style="font-size: 11px; color: var(--accent-neon); display: none;">Saved successfully!</div>
+        </div>
+      </div>
+
+      <!-- Xtream Content Selector and Filtering -->
+      <div id="xtreamFilterArea" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <!-- Stream Type Tab selector -->
+        <div style="display: flex; gap: 4px;">
+          <button id="xtreamTypeLive" class="btn btn-secondary active" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Live</button>
+          <button id="xtreamTypeMovie" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Movies</button>
+          <button id="xtreamTypeSeries" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Series</button>
+        </div>
+        <input type="text" id="xtreamSearchBar" class="search-bar" placeholder="Search loaded streams...">
+        <select id="xtreamCategorySelect" class="category-select">
+          <option value="all">All Categories</option>
+        </select>
+      </div>
+
+      <!-- Xtream Channels/Streams List -->
+      <div class="channel-list-wrapper" style="padding: 0; flex-grow: 1; overflow-y: auto;">
+        <div id="xtreamChannelList" class="channel-list">
+          <div style="color: var(--text-muted); text-align: center; margin-top: 30px; font-size: 13px;">Enter Xtream server credentials & click Load Streams.</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Display Screen -->
+  <main class="main-canvas">
+    <header class="player-header">
+      <div class="active-channel-details">
+        <div id="activeLogo" class="channel-logo" style="width: 32px; height: 32px; display: none;"></div>
+        <div>
+          <h2 id="activeTitle" class="active-channel-title">No Stream Loaded</h2>
+          <div class="active-channel-status">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText">Offline</span>
+          </div>
+        </div>
+        <span id="favToggle" class="fav-star" title="Add to favorites" style="margin-left: auto; cursor: pointer; font-size: 20px;">☆</span>
+      </div>
+      <div class="quality-selector-container" style="display: flex; align-items: center; gap: 8px;">
+        <label for="qualitySelect" style="font-size: 14px; color: var(--text-muted);">Quality:</label>
+        <select id="qualitySelect" class="category-select" style="width: auto; padding: 6px 12px; font-size: 13px;">
+          <option value="auto">Auto (Source)</option>
+          <option value="high">720p (High)</option>
+          <option value="medium">480p (Medium)</option>
+          <option value="low">360p (Low)</option>
+          <option value="verylow">240p (Very Low)</option>
+        </select>
+      </div>
+    </header>
+
+    <div class="player-container">
+      <!-- Loading Spinner -->
+      <div id="playerLoader" class="player-loader">
+        <div class="spinner"></div>
+        <p>Proxying stream and initializing buffer...</p>
+      </div>
+
+      <!-- Welcome / Instruction overlay -->
+      <div id="placeholder" class="player-placeholder">
+        <div class="placeholder-icon">📺</div>
+        <h3>Welcome to SONO Player</h3>
+        <p style="max-width: 400px; font-size: 14px;">Paste an M3U playlist on the left, or load the demo stream to experience live transcoding capabilities.</p>
+      </div>
+
+      <!-- Video Element -->
+      <video id="videoPlayer" controls></video>
+    </div>
+  </main>
+
+  <script>
+    // Elements
+    const playlistText = document.getElementById('playlistText');
+    const loadBtn = document.getElementById('loadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const demoBtn = document.getElementById('demoBtn');
+    const searchBar = document.getElementById('searchBar');
+    const categorySelect = document.getElementById('categorySelect');
+    const channelList = document.getElementById('channelList');
+    const tabLocal = document.getElementById('tabLocal');
+    const tabInternet = document.getElementById('tabInternet');
+    const tabFavorites = document.getElementById('tabFavorites');
+    const tabAi = document.getElementById('tabAi');
+
+    // In production (Vercel), API calls use relative URLs (Vercel rewrites proxy them to the backend).
+    // For local dev, the backend runs on localhost:3000.
+    const BASE_URL = window.SONO_BACKEND_URL || (location.hostname === 'localhost' ? 'http://localhost:3000' : '');
+    
+    const aiContainer = document.getElementById('aiContainer');
+    const aiSettingsHeader = document.getElementById('aiSettingsHeader');
+    const aiSettingsArrow = document.getElementById('aiSettingsArrow');
+    const aiSettingsContent = document.getElementById('aiSettingsContent');
+    const geminiApiKey = document.getElementById('geminiApiKey');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const saveApiKeyStatus = document.getElementById('saveApiKeyStatus');
+    const aiChatHistory = document.getElementById('aiChatHistory');
+    const aiInput = document.getElementById('aiInput');
+    const aiSendBtn = document.getElementById('aiSendBtn');
+    
+    const playlistNameInput = document.getElementById('playlistNameInput');
+    const savePlaylistBtn = document.getElementById('savePlaylistBtn');
+    const savedPlaylistsContainer = document.getElementById('savedPlaylistsContainer');
+    const savedPlaylistsSelect = document.getElementById('savedPlaylistsSelect');
+    const deletePlaylistBtn = document.getElementById('deletePlaylistBtn');
+    
+    const activeTitle = document.getElementById('activeTitle');
+    const activeLogo = document.getElementById('activeLogo');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    
+    const videoPlayer = document.getElementById('videoPlayer');
+    const placeholder = document.getElementById('placeholder');
+    const playerLoader = document.getElementById('playerLoader');
+
+    let parsedChannels = [];
+    let internetChannels = [];
+    let favorites = [];
+    let currentTab = 'local';
+    let hls = null;
+    let currentChannel = null;
+
+    // Load persisted favorites
+    const loadFavorites = () => {
+      try { favorites = JSON.parse(localStorage.getItem('favorites') || '[]'); } catch { favorites = []; }
+    };
+    const saveFavorites = () => localStorage.setItem('favorites', JSON.stringify(favorites));
+    const isFavorite = (ch) => favorites.some(f => f.url === ch.url);
+    const toggleFavorite = (ch) => {
+      if (isFavorite(ch)) {
+        favorites = favorites.filter(f => f.url !== ch.url);
+      } else {
+        favorites.push(ch);
+      }
+      saveFavorites();
+      document.getElementById('favCount').textContent = favorites.length;
+    };
+    loadFavorites();
+    document.getElementById('favCount').textContent = favorites.length;
+
+    // Xtream Codes State and Profile Management
+    let xtreamChannels = [];
+    let xtreamProfiles = [];
+    let activeXtreamType = 'live'; // 'live', 'movie', 'series'
+    let currentSeriesData = null; // Stores seasons/episodes for series detail view
+
+    const loadXtreamProfiles = () => {
+      try {
+        xtreamProfiles = JSON.parse(localStorage.getItem('xtream_profiles') || '[]');
+      } catch (e) {
+        xtreamProfiles = [];
+      }
+    };
+
+    const saveXtreamProfiles = () => {
+      localStorage.setItem('xtream_profiles', JSON.stringify(xtreamProfiles));
+    };
+
+    function renderXtreamProfilesSelect() {
+      xtreamProfileSelect.innerHTML = '<option value="">-- New Server Profile --</option>';
+      xtreamProfiles.forEach((p, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = p.name || p.host;
+        xtreamProfileSelect.appendChild(opt);
+      });
+      xtreamDeleteProfileBtn.style.display = 'none';
+    }
+
+    loadXtreamProfiles();
+
+    // Playlist Registry Management
+    let playlistRegistry = [];
+    try {
+      playlistRegistry = JSON.parse(localStorage.getItem('saved_playlists_registry') || '[]');
+    } catch (e) {
+      playlistRegistry = [];
+    }
+
+    let activePlaylistId = localStorage.getItem('active_playlist_id') || '';
+
+    // Render registry items in dropdown selector
+    function renderPlaylistsSelect() {
+      savedPlaylistsSelect.innerHTML = '<option value="">-- Load Saved Playlist --</option>';
+      if (playlistRegistry.length > 0) {
+        savedPlaylistsContainer.style.display = 'flex';
+        playlistRegistry.forEach(pl => {
+          const opt = document.createElement('option');
+          opt.value = pl.id;
+          opt.textContent = pl.name;
+          if (pl.id === activePlaylistId) {
+            opt.selected = true;
+          }
+          savedPlaylistsSelect.appendChild(opt);
+        });
+      } else {
+        savedPlaylistsContainer.style.display = 'none';
+      }
+    }
+
+    // Function to load a specific playlist by ID
+    function loadPlaylistById(id, triggerLiveFetch = true) {
+      const pl = playlistRegistry.find(item => item.id === id);
+      if (!pl) return;
+
+      selectTab('local');
+      playlistText.value = pl.input;
+      activePlaylistId = id;
+      localStorage.setItem('active_playlist_id', id);
+
+      const cachedContent = localStorage.getItem(`playlist_content_${id}`);
+
+      if (triggerLiveFetch && (pl.input.startsWith('http://') || pl.input.startsWith('https://'))) {
+        channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px; font-size: 13px;">Loading channels from URL...</div>';
+        fetch(`${BASE_URL}/playlist?url=${encodeURIComponent(pl.input)}`)
+          .then(res => {
+            if (!res.ok) throw new Error();
+            return res.text();
+          })
+          .then(content => {
+            parseAndLoadPlaylist(content, true, id);
+          })
+          .catch(() => {
+            if (cachedContent) {
+              parseAndLoadPlaylist(cachedContent, false, id);
+            } else {
+              channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px; font-size: 13px;">Failed to load. Please click Load Channels.</div>';
+            }
+          });
+      } else {
+        if (cachedContent) {
+          parseAndLoadPlaylist(cachedContent, false, id);
+        }
+      }
+    }
+
+    // Migration from single playlist to registry if registry is empty
+    const oldInput = localStorage.getItem('saved_playlist_input');
+    const oldContent = localStorage.getItem('saved_playlist_content');
+    if (oldInput && playlistRegistry.length === 0) {
+      const defaultId = 'playlist_default';
+      const defaultName = 'Default Playlist';
+      playlistRegistry.push({ id: defaultId, name: defaultName, input: oldInput });
+      localStorage.setItem('saved_playlists_registry', JSON.stringify(playlistRegistry));
+      if (oldContent) {
+        localStorage.setItem(`playlist_content_${defaultId}`, oldContent);
+      }
+      activePlaylistId = defaultId;
+      localStorage.setItem('active_playlist_id', defaultId);
+    }
+
+    // Render registry and load active playlist on startup
+    renderPlaylistsSelect();
+    if (activePlaylistId) {
+      loadPlaylistById(activePlaylistId, true);
+    }
+
+    // Load Demo Stream
+    const DEMO_PLAYLIST = `#EXTM3U
+#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/HasanRazaDev/HasanRazaDev/main/assets/live.png" group-title="Live Feeds",Big Buck Bunny (HLS Proxy Demo)
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 group-title="Documentaries",Sintel Trailer (MP4 Proxy Demo)
+https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
+
+    demoBtn.addEventListener('click', () => {
+      playlistText.value = DEMO_PLAYLIST;
+      selectTab('local');
+      parseAndLoadPlaylist(DEMO_PLAYLIST, false);
+    });
+
+    // Parse button trigger
+    loadBtn.addEventListener('click', async () => {
+      const text = playlistText.value.trim();
+      if (!text) {
+        alert('Please paste a valid M3U playlist or playlist URL.');
+        return;
+      }
+
+      selectTab('local');
+
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        try {
+          loadBtn.disabled = true;
+          loadBtn.textContent = 'Fetching...';
+          const response = await fetch(`${BASE_URL}/playlist?url=${encodeURIComponent(text)}`);
+          if (!response.ok) {
+            throw new Error(`Failed to load playlist (status code: ${response.status})`);
+          }
+          const playlistContent = await response.text();
+          parseAndLoadPlaylist(playlistContent, false);
+        } catch (err) {
+          alert(`Error fetching playlist: ${err.message}`);
+        } finally {
+          loadBtn.disabled = false;
+          loadBtn.textContent = 'Load Channels';
+        }
+      } else {
+        parseAndLoadPlaylist(text, false);
+      }
+    });
+
+    // Save list listener
+    savePlaylistBtn.addEventListener('click', () => {
+      const name = playlistNameInput.value.trim();
+      const input = playlistText.value.trim();
+      
+      if (!name) {
+        alert('Please enter a name for your playlist.');
+        return;
+      }
+      if (!input) {
+        alert('Please paste raw M3U text or a URL before saving.');
+        return;
+      }
+
+      // Check if updating an existing one or generating a new ID
+      const existing = playlistRegistry.find(pl => pl.name.toLowerCase() === name.toLowerCase());
+      const id = existing ? existing.id : 'playlist_' + Date.now();
+
+      if (!existing) {
+        playlistRegistry.push({ id, name, input });
+      } else {
+        existing.input = input;
+      }
+
+      localStorage.setItem('saved_playlists_registry', JSON.stringify(playlistRegistry));
+      playlistNameInput.value = '';
+      
+      if (input.startsWith('http://') || input.startsWith('https://')) {
+        savePlaylistBtn.disabled = true;
+        savePlaylistBtn.textContent = 'Saving...';
+        fetch(`${BASE_URL}/playlist?url=${encodeURIComponent(input)}`)
+          .then(res => {
+            if (!res.ok) throw new Error();
+            return res.text();
+          })
+          .then(content => {
+            parseAndLoadPlaylist(content, true, id);
+            activePlaylistId = id;
+            localStorage.setItem('active_playlist_id', id);
+            renderPlaylistsSelect();
+          })
+          .catch(err => {
+            alert('Failed to pre-cache online M3U content. The playlist is saved, but local backup cache is unavailable.');
+            activePlaylistId = id;
+            localStorage.setItem('active_playlist_id', id);
+            renderPlaylistsSelect();
+          })
+          .finally(() => {
+            savePlaylistBtn.disabled = false;
+            savePlaylistBtn.textContent = 'Save List';
+          });
+      } else {
+        parseAndLoadPlaylist(input, true, id);
+        activePlaylistId = id;
+        localStorage.setItem('active_playlist_id', id);
+        renderPlaylistsSelect();
+      }
+    });
+
+    // Delete playlist listener
+    deletePlaylistBtn.addEventListener('click', () => {
+      const id = savedPlaylistsSelect.value;
+      if (!id) {
+        alert('Please select a saved playlist to delete.');
+        return;
+      }
+      
+      const pl = playlistRegistry.find(item => item.id === id);
+      if (!pl) return;
+      
+      if (!confirm(`Are you sure you want to delete the playlist "${pl.name}"?`)) {
+        return;
+      }
+
+      playlistRegistry = playlistRegistry.filter(item => item.id !== id);
+      localStorage.setItem('saved_playlists_registry', JSON.stringify(playlistRegistry));
+      localStorage.removeItem(`playlist_content_${id}`);
+
+      if (activePlaylistId === id) {
+        activePlaylistId = '';
+        localStorage.removeItem('active_playlist_id');
+        playlistText.value = '';
+        parsedChannels = [];
+        renderChannels();
+      }
+
+      renderPlaylistsSelect();
+    });
+
+    // Dropdown change listener
+    savedPlaylistsSelect.addEventListener('change', () => {
+      const id = savedPlaylistsSelect.value;
+      if (id) {
+        loadPlaylistById(id, true);
+      }
+    });
+
+    // Parsing Logic
+    function parseAndLoadPlaylist(data, shouldSave = true, playlistId = activePlaylistId) {
+      if (shouldSave && playlistId) {
+        try {
+          localStorage.setItem(`playlist_content_${playlistId}`, data);
+        } catch (e) {
+          console.warn('Could not cache raw playlist content in localStorage (Quota exceeded).', e);
+        }
+      }
+      const lines = data.split('\n');
+      parsedChannels = [];
+      const categories = new Set();
+      
+      let currentItem = null;
+
+      for (let line of lines) {
+        line = line.trim();
+        if (line.startsWith('#EXTINF:')) {
+          currentItem = {
+            name: 'Unknown Stream',
+            logo: '',
+            group: 'Uncategorized',
+            url: ''
+          };
+
+          // Extract logo
+          const logoMatch = line.match(/tvg-logo="([^"]+)"/i);
+          if (logoMatch) currentItem.logo = logoMatch[1];
+
+          // Extract group
+          const groupMatch = line.match(/group-title="([^"]+)"/i);
+          if (groupMatch) {
+            currentItem.group = groupMatch[1];
+            categories.add(groupMatch[1]);
+          }
+
+          // Extract channel title (follows the last comma)
+          const commaIndex = line.lastIndexOf(',');
+          if (commaIndex !== -1) {
+            currentItem.name = line.substring(commaIndex + 1).trim();
+          }
+        } else if (line && !line.startsWith('#')) {
+          if (currentItem) {
+            currentItem.url = line;
+            parsedChannels.push(currentItem);
+            currentItem = null;
+          }
+        }
+      }
+
+      // Update Filter Category Selection Dropdown
+      categorySelect.innerHTML = '<option value="all">All Categories</option>';
+      categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        categorySelect.appendChild(option);
+      });
+
+      renderChannels();
+    }
+
+    // Render channels in sidebar
+    function renderChannels() {
+      channelList.innerHTML = '';
+
+      if (currentTab === 'local') {
+        const searchQuery = searchBar.value.toLowerCase().trim();
+        const selectedCategory = categorySelect.value;
+        const filtered = parsedChannels.filter(ch => {
+          const matchesSearch = ch.name.toLowerCase().includes(searchQuery);
+          const matchesCategory = selectedCategory === 'all' || ch.group === selectedCategory;
+          return matchesSearch && matchesCategory;
+        });
+
+        if (filtered.length === 0) {
+          channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px;">No channels found</div>';
+          return;
+        }
+        displayList(filtered);
+      } else if (currentTab === 'internet') {
+        if (internetChannels.length === 0) {
+          channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px; font-size: 13px;">Type channel name above & press Enter to search the internet...</div>';
+          return;
+        }
+        displayList(internetChannels);
+      } else if (currentTab === 'favorites') {
+        const searchQuery = searchBar.value.toLowerCase().trim();
+        const selectedCategory = categorySelect.value;
+        const filtered = favorites.filter(ch => {
+          const matchesSearch = ch.name.toLowerCase().includes(searchQuery);
+          const matchesCategory = selectedCategory === 'all' || ch.group === selectedCategory;
+          return matchesSearch && matchesCategory;
+        });
+        if (filtered.length === 0) {
+          channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px;">No favorites found</div>';
+          return;
+        }
+        displayList(filtered);
+      }
+    }
+
+    // Helper to draw channel list
+    function displayList(channels) {
+      channels.forEach(ch => {
+        const div = document.createElement('div');
+        div.className = 'channel-item';
+
+        // Favorite star button — built as DOM node to keep the event listener
+        const favStar = document.createElement('span');
+        favStar.className = 'fav-star';
+        favStar.style.cssText = 'margin-right:8px; cursor:pointer; font-size:18px; flex-shrink:0; color: #f0c040;';
+        const refreshStar = () => {
+          favStar.textContent = isFavorite(ch) ? '★' : '☆';
+          favStar.title = isFavorite(ch) ? 'Remove from favorites' : 'Add to favorites';
+        };
+        refreshStar();
+        favStar.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFavorite(ch);
+          refreshStar();
+          if (currentTab === 'favorites') renderChannels();
+        });
+
+        // Logo node
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'channel-logo';
+        if (ch.logo) {
+          const img = document.createElement('img');
+          img.src = ch.logo;
+          img.alt = '';
+          img.onerror = function() { logoDiv.textContent = '📺'; };
+          logoDiv.appendChild(img);
+        } else {
+          logoDiv.textContent = '📺';
+        }
+
+        // Info node
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'channel-info';
+        infoDiv.style.cssText = 'flex-grow:1; min-width:0;';
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'channel-name';
+        nameDiv.title = ch.name;
+        nameDiv.textContent = ch.name;
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'channel-group';
+        groupDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px;';
+        const groupSpan = document.createElement('span');
+        groupSpan.style.cssText = 'white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:150px;';
+        groupSpan.textContent = ch.group || '';
+        groupDiv.appendChild(groupSpan);
+        if (ch.source) {
+          const srcSpan = document.createElement('span');
+          srcSpan.textContent = ch.source;
+          srcSpan.style.cssText = 'font-size:9px; padding:2px 5px; border-radius:4px; background:var(--bg-input); border:1px solid var(--border); color:var(--accent-hover); white-space:nowrap;';
+          groupDiv.appendChild(srcSpan);
+        }
+        infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(groupDiv);
+
+        // Assemble — star first, then logo, then info
+        div.appendChild(favStar);
+        div.appendChild(logoDiv);
+        div.appendChild(infoDiv);
+
+        div.addEventListener('click', () => {
+          document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+          div.classList.add('active');
+          playChannel(ch);
+        });
+
+        channelList.appendChild(div);
+      });
+    }
+
+    // Play Stream Channel via local FFmpeg proxy
+    function playChannel(channel) {
+      currentChannel = channel;
+      placeholder.style.display = 'none';
+      playerLoader.style.display = 'flex';
+      
+      // Update UI active header
+      activeTitle.textContent = channel.name;
+      if (channel.logo) {
+        activeLogo.style.display = 'block';
+        activeLogo.innerHTML = `<img src="${channel.logo}" alt="" onerror="this.style.display='none'">`;
+      } else {
+        activeLogo.style.display = 'none';
+      }
+      // Update favorite toggle UI for the currently playing channel
+      const favToggle = document.getElementById('favToggle');
+      if (favToggle) {
+        favToggle.textContent = isFavorite(channel) ? '★' : '☆';
+        favToggle.title = isFavorite(channel) ? 'Remove from favorites' : 'Add to favorites';
+        favToggle.onclick = (e) => {
+          e.stopPropagation();
+          toggleFavorite(channel);
+          favToggle.textContent = isFavorite(channel) ? '★' : '☆';
+          favToggle.title = isFavorite(channel) ? 'Remove from favorites' : 'Add to favorites';
+          // Refresh favorites list if currently viewing it
+          if (currentTab === 'favorites') renderChannels();
+        };
+      }
+
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'Connecting...';
+
+      // Setup Proxy Stream URL
+      const quality = document.getElementById('qualitySelect').value;
+      const proxyUrl = `${BASE_URL}/stream?url=${encodeURIComponent(channel.url)}&quality=${quality}`;
+
+      // Destroy old Hls instance
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          maxBufferLength: 10,
+          liveSyncDuration: 3,
+          liveMaxLatencyDuration: 6
+        });
+        hls.loadSource(proxyUrl);
+        hls.attachMedia(videoPlayer);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          playerLoader.style.display = 'none';
+          videoPlayer.play().catch(e => console.log('Auto-play blocked, requiring user click.', e));
+          statusDot.className = 'status-dot active';
+          statusText.textContent = 'Transcoding & Streaming';
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('HLS error:', data);
+          if (data.fatal) {
+            statusDot.className = 'status-dot';
+            statusText.textContent = 'Playback Error';
+            playerLoader.style.display = 'none';
+          }
+        });
+      } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+        // Fallback for native HLS (Safari)
+        videoPlayer.src = proxyUrl;
+        videoPlayer.addEventListener('loadedmetadata', () => {
+          playerLoader.style.display = 'none';
+          videoPlayer.play();
+          statusDot.className = 'status-dot active';
+          statusText.textContent = 'Streaming';
+        });
+      } else {
+        alert('Your browser does not support HLS streaming.');
+        playerLoader.style.display = 'none';
+      }
+    }
+
+    // Tab toggler refactored with selectTab
+    function selectTab(tabName) {
+      currentTab = tabName;
+      
+      tabLocal.classList.toggle('active', tabName === 'local');
+      tabInternet.classList.toggle('active', tabName === 'internet');
+      tabFavorites.classList.toggle('active', tabName === 'favorites');
+      tabAi.classList.toggle('active', tabName === 'ai');
+      tabXtream.classList.toggle('active', tabName === 'xtream');
+
+      const filterContainer = document.querySelector('.search-filter-container');
+      const listWrapper = document.querySelector('.channel-list-wrapper');
+      
+      if (tabName === 'ai') {
+        filterContainer.style.display = 'none';
+        listWrapper.style.display = 'none';
+        aiContainer.style.display = 'flex';
+        xtreamContainer.style.display = 'none';
+      } else if (tabName === 'xtream') {
+        filterContainer.style.display = 'none';
+        listWrapper.style.display = 'none';
+        aiContainer.style.display = 'none';
+        xtreamContainer.style.display = 'flex';
+        renderXtream();
+      } else {
+        filterContainer.style.display = 'block';
+        listWrapper.style.display = 'block';
+        aiContainer.style.display = 'none';
+        xtreamContainer.style.display = 'none';
+        
+        if (tabName === 'local') {
+          categorySelect.style.display = 'block';
+          searchBar.placeholder = 'Search local channels...';
+          searchBar.value = '';
+        } else if (tabName === 'internet') {
+          categorySelect.style.display = 'none';
+          searchBar.placeholder = 'Search web & press Enter...';
+          searchBar.value = '';
+        } else if (tabName === 'favorites') {
+          categorySelect.style.display = 'block';
+          searchBar.placeholder = 'Search favorites...';
+        }
+        renderChannels();
+      }
+    }
+
+    tabLocal.addEventListener('click', () => selectTab('local'));
+    tabInternet.addEventListener('click', () => selectTab('internet'));
+    tabFavorites.addEventListener('click', () => selectTab('favorites'));
+    tabAi.addEventListener('click', () => selectTab('ai'));
+    tabXtream.addEventListener('click', () => selectTab('xtream'));
+
+    // Clear button listener
+    clearBtn.addEventListener('click', () => {
+      playlistText.value = '';
+      playlistNameInput.value = '';
+      parsedChannels = [];
+      activePlaylistId = '';
+      localStorage.removeItem('active_playlist_id');
+      savedPlaylistsSelect.value = '';
+      
+      categorySelect.innerHTML = '<option value="all">All Categories</option>';
+      renderChannels();
+      
+      activeTitle.textContent = 'No Stream Loaded';
+      activeLogo.style.display = 'none';
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'Offline';
+      
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      videoPlayer.src = '';
+      placeholder.style.display = 'flex';
+      playerLoader.style.display = 'none';
+    });
+
+    // Internet search method
+    async function searchInternet(query) {
+      if (!query.trim()) return;
+      channelList.innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+          <div class="spinner" style="margin: 0 auto 12px auto; width: 30px; height: 30px;"></div>
+          <p style="font-size: 13px;">Searching registries & crawling web links...</p>
+        </div>
+      `;
+      try {
+        const response = await fetch(`${BASE_URL}/search-internet?q=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error('Search request failed');
+        internetChannels = await response.json();
+        renderChannels();
+      } catch (err) {
+        channelList.innerHTML = `<div style="color: #ef233c; text-align: center; margin-top: 20px; font-size: 13px;">Search Error: ${err.message}</div>`;
+      }
+    }
+
+    // Input & click event listeners
+    searchBar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && currentTab === 'internet') {
+        searchInternet(searchBar.value);
+      }
+    });
+
+    searchBar.addEventListener('input', () => {
+      if (currentTab === 'local' || currentTab === 'favorites') {
+        renderChannels();
+      }
+    });
+
+    categorySelect.addEventListener('change', () => {
+      if (currentTab === 'local' || currentTab === 'favorites') {
+        renderChannels();
+      }
+    });
+
+    // Quality selector listener to reload the active stream
+    document.getElementById('qualitySelect').addEventListener('change', () => {
+      if (currentChannel) {
+        playChannel(currentChannel);
+      }
+    });
+
+    // AI Configuration & Settings Toggling
+    const storedApiKey = localStorage.getItem('gemini_api_key');
+    if (storedApiKey) {
+      geminiApiKey.value = storedApiKey;
+    }
+    
+    saveApiKeyBtn.addEventListener('click', () => {
+      const key = geminiApiKey.value.trim();
+      localStorage.setItem('gemini_api_key', key);
+      saveApiKeyStatus.style.display = 'block';
+      saveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
+      setTimeout(() => {
+        saveApiKeyStatus.style.display = 'none';
+      }, 3000);
+    });
+
+    aiSettingsHeader.addEventListener('click', () => {
+      const isCollapsed = aiSettingsContent.style.display === 'none' || aiSettingsContent.style.display === '';
+      aiSettingsContent.style.display = isCollapsed ? 'flex' : 'none';
+      aiSettingsArrow.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+    });
+
+    // AI search execution
+    async function sendAiPrompt() {
+      const prompt = aiInput.value.trim();
+      if (!prompt) return;
+
+      aiInput.value = '';
+      appendChatMessage('user', prompt);
+
+      const loadingMessageDiv = appendChatMessage('ai', `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="spinner" style="width: 16px; height: 16px; border-width: 2px; margin: 0;"></div>
+          <span>Processing request...</span>
+        </div>
+      `, true);
+
+      try {
+        const apiKey = geminiApiKey.value.trim();
+        const response = await fetch(`${BASE_URL}/api/ai-search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prompt, apiKey })
+        });
+
+        if (!response.ok) {
+          throw new Error(`AI search failed (Status ${response.status})`);
+        }
+
+        const data = await response.json();
+        loadingMessageDiv.remove();
+
+        let aiText = `🤖 <strong>AI Assistant</strong><br>${data.explanation}<br><br>`;
+        
+        if (data.channels && data.channels.length > 0) {
+          aiText += `<strong>Found ${data.channels.length} channels:</strong>`;
+          
+          const resultsContainer = document.createElement('div');
+          resultsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-top: 8px;';
+          
+          data.channels.forEach(ch => {
+            const card = document.createElement('div');
+            card.className = 'channel-item';
+            card.style.cssText = 'padding: 8px 12px; font-size: 13px; cursor: default; margin-bottom: 0;';
+            
+            // Play Button
+            const playBtn = document.createElement('button');
+            playBtn.className = 'btn';
+            playBtn.style.cssText = 'padding: 4px 10px; font-size: 11px; margin-left: auto;';
+            playBtn.textContent = 'Play';
+            playBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              playChannel(ch);
+            });
+
+            // Favorite star button
+            const favStar = document.createElement('span');
+            favStar.className = 'fav-star';
+            favStar.style.cssText = 'margin-right:8px; cursor:pointer; font-size:16px; flex-shrink:0; color: #f0c040;';
+            const refreshStar = () => {
+              favStar.textContent = isFavorite(ch) ? '★' : '☆';
+              favStar.title = isFavorite(ch) ? 'Remove from favorites' : 'Add to favorites';
+            };
+            refreshStar();
+            favStar.addEventListener('click', (e) => {
+              e.stopPropagation();
+              toggleFavorite(ch);
+              refreshStar();
+              if (currentTab === 'favorites') renderChannels();
+            });
+
+            // Logo
+            const logoSpan = document.createElement('div');
+            logoSpan.className = 'channel-logo';
+            logoSpan.style.cssText = 'width: 28px; height: 28px; font-size: 12px;';
+            if (ch.logo) {
+              const img = document.createElement('img');
+              img.src = ch.logo;
+              img.alt = '';
+              img.onerror = () => { logoSpan.textContent = '📺'; };
+              logoSpan.appendChild(img);
+            } else {
+              logoSpan.textContent = '📺';
+            }
+
+            // Info
+            const infoSpan = document.createElement('div');
+            infoSpan.style.cssText = 'flex-grow:1; min-width:0; overflow:hidden;';
+            const nameSpan = document.createElement('div');
+            nameSpan.style.cssText = 'font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;';
+            nameSpan.textContent = ch.name;
+            const groupSpan = document.createElement('div');
+            groupSpan.style.cssText = 'font-size: 10px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; gap: 4px;';
+            groupSpan.innerHTML = `<span style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:80px;">${ch.group || ''}</span> <span style="font-size:8px; padding:1px 3px; border-radius:3px; background:var(--bg-input); border:1px solid var(--border); color:var(--accent-hover);">${ch.source || ''}</span>`;
+
+            infoSpan.appendChild(nameSpan);
+            infoSpan.appendChild(groupSpan);
+
+            card.appendChild(favStar);
+            card.appendChild(logoSpan);
+            card.appendChild(infoSpan);
+            card.appendChild(playBtn);
+            
+            resultsContainer.appendChild(card);
+          });
+
+          const responseMessageDiv = appendChatMessage('ai', aiText, true);
+          responseMessageDiv.appendChild(resultsContainer);
+        } else {
+          aiText += `⚠️ No matching channels found. Try adjusting your search query.`;
+          appendChatMessage('ai', aiText, true);
+        }
+      } catch (err) {
+        loadingMessageDiv.remove();
+        appendChatMessage('ai', `❌ Error searching channels: ${err.message}`, false);
+      }
+    }
+
+    function appendChatMessage(sender, content, isRawHtml = false) {
+      const messageDiv = document.createElement('div');
+      messageDiv.style.cssText = `
+        background: ${sender === 'user' ? 'rgba(94, 96, 206, 0.15)' : 'var(--bg-card)'};
+        border: 1px solid ${sender === 'user' ? 'var(--accent)' : 'var(--border)'};
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+        line-height: 1.4;
+        width: 100%;
+      `;
+
+      if (sender === 'user') {
+        messageDiv.innerHTML = `👤 <strong>You</strong><br>`;
+        const textSpan = document.createElement('span');
+        textSpan.textContent = content;
+        messageDiv.appendChild(textSpan);
+      } else {
+        if (isRawHtml) {
+          messageDiv.innerHTML = content;
+        } else {
+          const textSpan = document.createElement('span');
+          textSpan.textContent = content;
+          messageDiv.appendChild(textSpan);
+        }
+      }
+
+      aiChatHistory.appendChild(messageDiv);
+      aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
+      return messageDiv;
+    }
+
+    // Xtream Codes UI Collapsible Form
+    xtreamFormHeader.addEventListener('click', () => {
+      const isCollapsed = xtreamFormContent.style.display === 'none' || xtreamFormContent.style.display === '';
+      xtreamFormContent.style.display = isCollapsed ? 'flex' : 'none';
+      xtreamFormArrow.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+      xtreamFormArrow.textContent = isCollapsed ? '▲' : '▼';
+    });
+
+    // Populate saved profiles
+    renderXtreamProfilesSelect();
+
+    xtreamProfileSelect.addEventListener('change', triggerProfileChange);
+    xtreamSaveProfileBtn.addEventListener('click', saveXtreamProfile);
+    xtreamDeleteProfileBtn.addEventListener('click', deleteXtreamProfile);
+    xtreamLoadBtn.addEventListener('click', loadXtreamStreams);
+
+    // Search and category select for Xtream
+    xtreamSearchBar.addEventListener('input', () => {
+      if (currentTab === 'xtream') renderXtream();
+    });
+    xtreamCategorySelect.addEventListener('change', () => {
+      if (currentTab === 'xtream') renderXtream();
+    });
+
+    // Type tab selectors
+    xtreamTypeLive.addEventListener('click', () => {
+      activeXtreamType = 'live';
+      xtreamTypeLive.classList.add('active');
+      xtreamTypeMovie.classList.remove('active');
+      xtreamTypeSeries.classList.remove('active');
+      loadXtreamStreams();
+    });
+    xtreamTypeMovie.addEventListener('click', () => {
+      activeXtreamType = 'movie';
+      xtreamTypeLive.classList.remove('active');
+      xtreamTypeMovie.classList.add('active');
+      xtreamTypeSeries.classList.remove('active');
+      loadXtreamStreams();
+    });
+    xtreamTypeSeries.addEventListener('click', () => {
+      activeXtreamType = 'series';
+      xtreamTypeLive.classList.remove('active');
+      xtreamTypeMovie.classList.remove('active');
+      xtreamTypeSeries.classList.add('active');
+      loadXtreamStreams();
+    });
+
+    // Profile Change Handler
+    function triggerProfileChange() {
+      const selectedIdx = xtreamProfileSelect.value;
+      if (selectedIdx === '') {
+        xtreamProfileName.value = '';
+        xtreamHost.value = '';
+        xtreamUsername.value = '';
+        xtreamPassword.value = '';
+        xtreamDeleteProfileBtn.style.display = 'none';
+        xtreamSaveProfileBtn.textContent = 'Save Profile';
+      } else {
+        const profile = xtreamProfiles[selectedIdx];
+        xtreamProfileName.value = profile.name || '';
+        xtreamHost.value = profile.host || '';
+        xtreamUsername.value = profile.username || '';
+        xtreamPassword.value = profile.password || '';
+        xtreamDeleteProfileBtn.style.display = 'flex';
+        xtreamSaveProfileBtn.textContent = 'Update Profile';
+      }
+    }
+
+    // Save/Update profile
+    function saveXtreamProfile() {
+      const name = xtreamProfileName.value.trim() || 'Xtream Server';
+      const host = xtreamHost.value.trim();
+      const username = xtreamUsername.value.trim();
+      const password = xtreamPassword.value.trim();
+      
+      if (!host || !username || !password) {
+        alert('Please fill in Host, Username, and Password fields.');
+        return;
+      }
+      
+      const newProfile = { name, host, username, password };
+      const selectedIdx = xtreamProfileSelect.value;
+      
+      if (selectedIdx === '') {
+        xtreamProfiles.push(newProfile);
+      } else {
+        xtreamProfiles[selectedIdx] = newProfile;
+      }
+      
+      saveXtreamProfiles();
+      renderXtreamProfilesSelect();
+      
+      xtreamProfileSelect.value = selectedIdx === '' ? xtreamProfiles.length - 1 : selectedIdx;
+      triggerProfileChange();
+
+      xtreamStatusMsg.style.display = 'block';
+      setTimeout(() => {
+        xtreamStatusMsg.style.display = 'none';
+      }, 3000);
+    }
+
+    // Delete profile
+    function deleteXtreamProfile() {
+      const selectedIdx = xtreamProfileSelect.value;
+      if (selectedIdx === '') return;
+      
+      if (!confirm('Are you sure you want to delete this profile?')) return;
+      
+      xtreamProfiles.splice(selectedIdx, 1);
+      saveXtreamProfiles();
+      renderXtreamProfilesSelect();
+      xtreamProfileSelect.value = '';
+      triggerProfileChange();
+    }
+
+    // Load Streams from server
+    async function loadXtreamStreams() {
+      const selectedIdx = xtreamProfileSelect.value;
+      let host, username, password;
+      
+      if (selectedIdx === '') {
+        host = xtreamHost.value.trim();
+        username = xtreamUsername.value.trim();
+        password = xtreamPassword.value.trim();
+      } else {
+        const profile = xtreamProfiles[selectedIdx];
+        host = profile.host;
+        username = profile.username;
+        password = profile.password;
+      }
+      
+      if (!host || !username || !password) {
+        alert('Please select a saved profile or enter the Host, Username, and Password fields.');
+        return;
+      }
+
+      xtreamChannelList.innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+          <div class="spinner" style="margin: 0 auto 12px auto; width: 30px; height: 30px;"></div>
+          <p style="font-size: 13px;">Connecting to server & caching stream database...</p>
+        </div>
+      `;
+      xtreamLoadBtn.disabled = true;
+      xtreamLoadBtn.textContent = 'Loading...';
+
+      try {
+        const response = await fetch(`${BASE_URL}/api/xtream/fetch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host, username, password, type: activeXtreamType })
+        });
+        
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `Server responded with status ${response.status}`);
+        }
+
+        xtreamChannels = await response.json();
+        currentSeriesData = null; // Clear series subview
+        
+        const categories = new Set();
+        xtreamChannels.forEach(ch => {
+          if (ch.group) categories.add(ch.group);
+        });
+        
+        xtreamCategorySelect.innerHTML = '<option value="all">All Categories</option>';
+        Array.from(categories).sort().forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          xtreamCategorySelect.appendChild(opt);
+        });
+
+        // Auto collapse form on successful load to give list more space
+        xtreamFormContent.style.display = 'none';
+        xtreamFormArrow.style.transform = 'rotate(0deg)';
+        xtreamFormArrow.textContent = '▼';
+
+        renderXtream();
+      } catch (err) {
+        xtreamChannelList.innerHTML = `<div style="color: #ef233c; text-align: center; margin-top: 20px; font-size: 13px;">Error: ${err.message}</div>`;
+      } finally {
+        xtreamLoadBtn.disabled = false;
+        xtreamLoadBtn.textContent = 'Load Streams';
+      }
+    }
+
+    // Render Xtream stream list
+    function renderXtream() {
+      xtreamChannelList.innerHTML = '';
+      
+      if (currentSeriesData) {
+        // Render series seasons/episodes subview
+        const backBtn = document.createElement('div');
+        backBtn.className = 'channel-item';
+        backBtn.style.cssText = 'background: rgba(94, 96, 206, 0.1); border-color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; cursor: pointer;';
+        backBtn.textContent = '⬅️ Back to Series List';
+        backBtn.addEventListener('click', () => {
+          currentSeriesData = null;
+          renderXtream();
+        });
+        xtreamChannelList.appendChild(backBtn);
+
+        const seasonSelectRow = document.createElement('div');
+        seasonSelectRow.style.cssText = 'padding: 8px 0; display: flex; align-items: center; gap: 8px; justify-content: space-between;';
+        
+        const seasonLabel = document.createElement('span');
+        seasonLabel.style.fontSize = '12px';
+        seasonLabel.style.color = 'var(--text-muted)';
+        seasonLabel.textContent = 'Season:';
+        
+        const seasonSelect = document.createElement('select');
+        seasonSelect.className = 'category-select';
+        seasonSelect.style.cssText = 'flex-grow: 1; padding: 4px 8px; font-size: 12px; height: 28px; width: auto;';
+        
+        const seasons = Object.keys(currentSeriesData.seasons).sort((a,b) => parseInt(a) - parseInt(b));
+        if (seasons.length === 0) {
+          const div = document.createElement('div');
+          div.style.cssText = 'color: var(--text-muted); text-align: center; margin-top: 10px; font-size: 13px;';
+          div.textContent = 'No seasons found for this series.';
+          xtreamChannelList.appendChild(div);
+          return;
+        }
+        
+        seasons.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = `Season ${s}`;
+          seasonSelect.appendChild(opt);
+        });
+        
+        seasonSelectRow.appendChild(seasonLabel);
+        seasonSelectRow.appendChild(seasonSelect);
+        xtreamChannelList.appendChild(seasonSelectRow);
+
+        const episodesContainer = document.createElement('div');
+        episodesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-top: 8px;';
+        xtreamChannelList.appendChild(episodesContainer);
+
+        const renderEpisodes = (seasonNum) => {
+          episodesContainer.innerHTML = '';
+          const episodes = currentSeriesData.seasons[seasonNum] || [];
+          if (episodes.length === 0) {
+            episodesContainer.innerHTML = '<div style="color: var(--text-muted); text-align: center; font-size: 12px;">No episodes in this season.</div>';
+            return;
+          }
+          episodes.forEach(ep => {
+            const div = document.createElement('div');
+            div.className = 'channel-item';
+            
+            const logo = document.createElement('div');
+            logo.className = 'channel-logo';
+            logo.textContent = '🎬';
+            
+            const info = document.createElement('div');
+            info.className = 'channel-info';
+            info.style.cssText = 'flex-grow: 1; min-width: 0;';
+            
+            const name = document.createElement('div');
+            name.className = 'channel-name';
+            name.title = ep.title;
+            name.textContent = ep.title;
+            
+            const epNum = document.createElement('div');
+            epNum.className = 'channel-group';
+            epNum.textContent = `Episode ${ep.episodeNum || ep.id}`;
+            
+            info.appendChild(name);
+            info.appendChild(epNum);
+            div.appendChild(logo);
+            div.appendChild(info);
+            
+            div.addEventListener('click', () => {
+              document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+              div.classList.add('active');
+              playChannel({
+                name: `${currentSeriesData.info.name || 'Series'} - S${seasonNum}E${ep.episodeNum || ep.id} - ${ep.title}`,
+                logo: currentSeriesData.info.cover || '',
+                group: `Season ${seasonNum}`,
+                url: ep.url,
+                source: 'Xtream Series'
+              });
+            });
+            
+            episodesContainer.appendChild(div);
+          });
+        };
+
+        seasonSelect.addEventListener('change', () => {
+          renderEpisodes(seasonSelect.value);
+        });
+        
+        renderEpisodes(seasons[0]);
+        return;
+      }
+
+      // Normal stream list view
+      const query = xtreamSearchBar.value.toLowerCase().trim();
+      const selectedCat = xtreamCategorySelect.value;
+      
+      const filtered = xtreamChannels.filter(ch => {
+        const matchesSearch = ch.name.toLowerCase().includes(query);
+        const matchesCat = selectedCat === 'all' || ch.group === selectedCat;
+        return matchesSearch && matchesCat;
+      });
+
+      if (filtered.length === 0) {
+        xtreamChannelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px;">No channels found</div>';
+        return;
+      }
+
+      filtered.forEach(ch => {
+        const div = document.createElement('div');
+        div.className = 'channel-item';
+
+        const favStar = document.createElement('span');
+        favStar.className = 'fav-star';
+        favStar.style.cssText = 'margin-right:8px; cursor:pointer; font-size:18px; flex-shrink:0; color: #f0c040;';
+        
+        const refreshStar = () => {
+          favStar.textContent = isFavorite(ch) ? '★' : '☆';
+          favStar.title = isFavorite(ch) ? 'Remove from favorites' : 'Add to favorites';
+        };
+        refreshStar();
+        favStar.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFavorite(ch);
+          refreshStar();
+        });
+
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'channel-logo';
+        if (ch.logo) {
+          const img = document.createElement('img');
+          img.src = ch.logo;
+          img.alt = '';
+          img.onerror = () => { logoDiv.textContent = activeXtreamType === 'live' ? '📺' : '🎬'; };
+          logoDiv.appendChild(img);
+        } else {
+          logoDiv.textContent = activeXtreamType === 'live' ? '📺' : '🎬';
+        }
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'channel-info';
+        infoDiv.style.cssText = 'flex-grow:1; min-width:0;';
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'channel-name';
+        nameDiv.title = ch.name;
+        nameDiv.textContent = ch.name;
+        
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'channel-group';
+        groupDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px;';
+        
+        const groupSpan = document.createElement('span');
+        groupSpan.style.cssText = 'white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:150px;';
+        groupSpan.textContent = ch.group || '';
+        
+        const srcSpan = document.createElement('span');
+        srcSpan.textContent = ch.source;
+        srcSpan.style.cssText = 'font-size:9px; padding:2px 5px; border-radius:4px; background:var(--bg-input); border:1px solid var(--border); color:var(--accent-hover); white-space:nowrap;';
+        
+        groupDiv.appendChild(groupSpan);
+        groupDiv.appendChild(srcSpan);
+        
+        infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(groupDiv);
+
+        div.appendChild(favStar);
+        div.appendChild(logoDiv);
+        div.appendChild(infoDiv);
+
+        div.addEventListener('click', async () => {
+          document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+          div.classList.add('active');
+          
+          if (ch.isSeries) {
+            xtreamChannelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 30px; font-size: 13px;"><div class="spinner" style="margin:0 auto 12px auto; width:24px; height:24px;"></div>Loading seasons & episodes...</div>';
+            try {
+              const selIdx = xtreamProfileSelect.value;
+              let hostUrl, userVal, passVal;
+              if (selIdx === '') {
+                hostUrl = xtreamHost.value.trim();
+                userVal = xtreamUsername.value.trim();
+                passVal = xtreamPassword.value.trim();
+              } else {
+                const profile = xtreamProfiles[selIdx];
+                hostUrl = profile.host;
+                userVal = profile.username;
+                passVal = profile.password;
+              }
+              const response = await fetch(`${BASE_URL}/api/xtream/series-info`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  host: hostUrl,
+                  username: userVal,
+                  password: passVal,
+                  seriesId: ch.seriesId
+                })
+              });
+              if (!response.ok) throw new Error();
+              currentSeriesData = await response.json();
+              if (!currentSeriesData.info.name) currentSeriesData.info.name = ch.name;
+              renderXtream();
+            } catch (err) {
+              alert('Failed to fetch series info from server.');
+              renderXtream();
+            }
+          } else {
+            playChannel(ch);
+          }
+        });
+
+        xtreamChannelList.appendChild(div);
+      });
+    }
+
+    aiSendBtn.addEventListener('click', sendAiPrompt);
+    aiInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendAiPrompt();
+    });
+  </script>
+</body>
+</html>

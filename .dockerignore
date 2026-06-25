@@ -1,0 +1,5 @@
+node_modules/
+public/streams/
+.env
+gemini_config.json
+*.log
