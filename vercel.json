@@ -4,11 +4,11 @@
   "buildCommand": "",
   "outputDirectory": "public",
   "rewrites": [
-    { "source": "/stream",           "destination": "https://REPLACE_WITH_YOUR_BACKEND_URL/stream" },
-    { "source": "/playlist",         "destination": "https://REPLACE_WITH_YOUR_BACKEND_URL/playlist" },
-    { "source": "/search-internet",  "destination": "https://REPLACE_WITH_YOUR_BACKEND_URL/search-internet" },
-    { "source": "/api/:path*",       "destination": "https://REPLACE_WITH_YOUR_BACKEND_URL/api/:path*" },
-    { "source": "/streams/:path*",   "destination": "https://REPLACE_WITH_YOUR_BACKEND_URL/streams/:path*" }
+    { "source": "/stream",           "destination": "https://sono-iptv-backend-production.up.railway.app/stream" },
+    { "source": "/playlist",         "destination": "https://sono-iptv-backend-production.up.railway.app/playlist" },
+    { "source": "/search-internet",  "destination": "https://sono-iptv-backend-production.up.railway.app/search-internet" },
+    { "source": "/api/:path*",       "destination": "https://sono-iptv-backend-production.up.railway.app/api/:path*" },
+    { "source": "/streams/:path*",   "destination": "https://sono-iptv-backend-production.up.railway.app/streams/:path*" }
   ],
   "headers": [
     {
