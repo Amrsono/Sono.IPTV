@@ -553,6 +553,20 @@
           </div>
           <div id="settingsSaveApiKeyStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">Key saved successfully!</div>
         </div>
+
+        <!-- Backend URL Section -->
+        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 16px;">
+          <label for="settingsBackendUrl" style="font-weight: 600; color: var(--text-main); font-size: 12px;">Transcoder Backend URL</label>
+          <p style="color: var(--text-muted); font-size: 11px; margin: 0; line-height: 1.4;">
+            Direct URL to your deployed transcoding backend. If left empty, it defaults to the production Railway backend.
+            Note: If this app is loaded over HTTPS (like Vercel), your backend must support HTTPS to avoid mixed content errors.
+          </p>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="settingsBackendUrl" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="https://your-backend.up.railway.app">
+            <button id="settingsSaveBackendBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save URL</button>
+          </div>
+          <div id="settingsSaveBackendStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">URL saved successfully!</div>
+        </div>
       </div>
     </div>
   </aside>
@@ -566,7 +580,7 @@
           <h2 id="activeTitle" class="active-channel-title">No Stream Loaded</h2>
           <div class="active-channel-status">
             <span id="statusDot" class="status-dot"></span>
-            <span id="statusText">Offline</span>
+            <span id="statusText">No Stream Loaded</span>
           </div>
         </div>
         <span id="favToggle" class="fav-star" title="Add to favorites" style="margin-left: auto; cursor: pointer; font-size: 20px;">☆</span>
@@ -618,9 +632,12 @@
     const tabXtream = document.getElementById('tabXtream');
     const tabSettings = document.getElementById('tabSettings');
 
-    // In production (Vercel), API calls use relative URLs (Vercel rewrites proxy them to the backend).
-    // For local dev, the backend runs on localhost:3000.
-    const BASE_URL = window.SONO_BACKEND_URL || (location.hostname === 'localhost' ? 'http://localhost:3000' : '');
+    // In production, default to the deployed Railway backend directly to bypass Vercel serverless limitations
+    // (such as the 4.5MB payload size limit, 10s timeout, and proxy buffering of HLS video streams).
+    const DEFAULT_PROD_BACKEND = 'https://sono-iptv-backend-production.up.railway.app';
+    let BASE_URL = window.SONO_BACKEND_URL || 
+                   localStorage.getItem('sono_backend_url') || 
+                   (location.hostname === 'localhost' ? 'http://localhost:3000' : DEFAULT_PROD_BACKEND);
     
     const aiContainer = document.getElementById('aiContainer');
     const aiSettingsHeader = document.getElementById('aiSettingsHeader');
@@ -637,6 +654,10 @@
     const settingsGeminiApiKey = document.getElementById('settingsGeminiApiKey');
     const settingsSaveApiKeyBtn = document.getElementById('settingsSaveApiKeyBtn');
     const settingsSaveApiKeyStatus = document.getElementById('settingsSaveApiKeyStatus');
+    
+    const settingsBackendUrl = document.getElementById('settingsBackendUrl');
+    const settingsSaveBackendBtn = document.getElementById('settingsSaveBackendBtn');
+    const settingsSaveBackendStatus = document.getElementById('settingsSaveBackendStatus');
     
     const playlistNameInput = document.getElementById('playlistNameInput');
     const savePlaylistBtn = document.getElementById('savePlaylistBtn');
@@ -1271,7 +1292,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       activeTitle.textContent = 'No Stream Loaded';
       activeLogo.style.display = 'none';
       statusDot.className = 'status-dot';
-      statusText.textContent = 'Offline';
+      statusText.textContent = 'No Stream Loaded';
       
       if (hls) {
         hls.destroy();
@@ -1353,6 +1374,32 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       settingsSaveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
       setTimeout(() => {
         settingsSaveApiKeyStatus.style.display = 'none';
+      }, 3000);
+    });
+
+    // Backend URL settings load & save
+    const storedBackendUrl = localStorage.getItem('sono_backend_url');
+    if (storedBackendUrl) {
+      settingsBackendUrl.value = storedBackendUrl;
+    }
+
+    settingsSaveBackendBtn.addEventListener('click', () => {
+      let url = settingsBackendUrl.value.trim();
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      if (url) {
+        localStorage.setItem('sono_backend_url', url);
+        BASE_URL = url;
+      } else {
+        localStorage.removeItem('sono_backend_url');
+        BASE_URL = window.SONO_BACKEND_URL || (location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://sono-iptv-backend-production.up.railway.app');
+      }
+      settingsBackendUrl.value = url;
+      settingsSaveBackendStatus.style.display = 'block';
+      settingsSaveBackendStatus.textContent = url ? 'Backend URL saved successfully!' : 'Reset to default production backend!';
+      setTimeout(() => {
+        settingsSaveBackendStatus.style.display = 'none';
       }, 3000);
     });
 
