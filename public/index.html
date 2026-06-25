@@ -420,10 +420,11 @@
           <button id="savePlaylistBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save List</button>
         </div>
         <!-- Saved Playlists Selector -->
-        <div id="savedPlaylistsContainer" style="display: none; gap: 8px; align-items: center; margin-top: 4px;">
+        <div id="savedPlaylistsContainer" style="display: flex; gap: 8px; align-items: center; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px;">
           <select id="savedPlaylistsSelect" class="category-select" style="padding: 6px 10px; font-size: 12px; flex-grow: 1; height: 32px;">
-            <option value="">-- Load Saved Playlist --</option>
+            <option value="">-- No Saved Playlists --</option>
           </select>
+          <button id="loadSavedPlaylistBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Load</button>
           <button id="deletePlaylistBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; height: 32px; border-color: #ef233c; color: #ef233c; display: flex; align-items: center; justify-content: center;" title="Delete selected playlist">🗑️</button>
         </div>
       </div>
@@ -682,6 +683,7 @@
     const savePlaylistBtn = document.getElementById('savePlaylistBtn');
     const savedPlaylistsContainer = document.getElementById('savedPlaylistsContainer');
     const savedPlaylistsSelect = document.getElementById('savedPlaylistsSelect');
+    const loadSavedPlaylistBtn = document.getElementById('loadSavedPlaylistBtn');
     const deletePlaylistBtn = document.getElementById('deletePlaylistBtn');
     
     // Xtream Codes elements
@@ -782,9 +784,8 @@
 
     // Render registry items in dropdown selector
     function renderPlaylistsSelect() {
-      savedPlaylistsSelect.innerHTML = '<option value="">-- Load Saved Playlist --</option>';
       if (playlistRegistry.length > 0) {
-        savedPlaylistsContainer.style.display = 'flex';
+        savedPlaylistsSelect.innerHTML = '<option value="">-- Select Playlist --</option>';
         playlistRegistry.forEach(pl => {
           const opt = document.createElement('option');
           opt.value = pl.id;
@@ -795,7 +796,7 @@
           savedPlaylistsSelect.appendChild(opt);
         });
       } else {
-        savedPlaylistsContainer.style.display = 'none';
+        savedPlaylistsSelect.innerHTML = '<option value="">-- No Saved Playlists --</option>';
       }
     }
 
@@ -989,12 +990,14 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       renderPlaylistsSelect();
     });
 
-    // Dropdown change listener
-    savedPlaylistsSelect.addEventListener('change', () => {
+    // Load playlist when Load button is clicked (to avoid auto-change event loops on TV navigation)
+    loadSavedPlaylistBtn.addEventListener('click', () => {
       const id = savedPlaylistsSelect.value;
-      if (id) {
-        loadPlaylistById(id, true);
+      if (!id) {
+        alert('Please select a saved playlist first.');
+        return;
       }
+      loadPlaylistById(id, true);
     });
 
     // Parsing Logic
