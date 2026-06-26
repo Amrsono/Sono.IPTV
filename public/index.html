@@ -1030,22 +1030,73 @@
         .then(res => res.json())
         .then(data => {
           let updated = false;
+          let needsPush = false;
+
+          // Merge Playlists
           if (data.playlistRegistry && Array.isArray(data.playlistRegistry)) {
-            playlistRegistry = data.playlistRegistry;
-            renderPlaylistsSelect();
-            updated = true;
+            if (data.playlistRegistry.length === 0 && playlistRegistry.length > 0) {
+              needsPush = true;
+            } else if (data.playlistRegistry.length > 0) {
+              const merged = [...playlistRegistry];
+              data.playlistRegistry.forEach(serverPl => {
+                const idx = merged.findIndex(p => p.id === serverPl.id);
+                if (idx >= 0) merged[idx] = serverPl;
+                else merged.push(serverPl);
+              });
+              if (JSON.stringify(merged) !== JSON.stringify(playlistRegistry)) {
+                playlistRegistry = merged;
+                renderPlaylistsSelect();
+                updated = true;
+                needsPush = true; // Push the merged result back up
+              }
+            }
+          } else if (playlistRegistry.length > 0) {
+            needsPush = true;
           }
+
+          // Merge Favorites
           if (data.favorites && Array.isArray(data.favorites)) {
-            favorites = data.favorites;
-            document.getElementById('favCount').textContent = favorites.length;
-            if (currentTab === 'favorites') selectTab('favorites');
-            updated = true;
+            if (data.favorites.length === 0 && favorites.length > 0) {
+              needsPush = true;
+            } else if (data.favorites.length > 0) {
+              const merged = [...favorites];
+              data.favorites.forEach(serverFav => {
+                if (!merged.some(f => f.url === serverFav.url)) merged.push(serverFav);
+              });
+              if (JSON.stringify(merged) !== JSON.stringify(favorites)) {
+                favorites = merged;
+                document.getElementById('favCount').textContent = favorites.length;
+                if (currentTab === 'favorites') selectTab('favorites');
+                updated = true;
+                needsPush = true;
+              }
+            }
+          } else if (favorites.length > 0) {
+            needsPush = true;
           }
+
+          // Merge Xtream Profiles
           if (data.xtreamProfiles && Array.isArray(data.xtreamProfiles)) {
-            xtreamProfiles = data.xtreamProfiles;
-            renderXtreamProfilesSelect();
-            updated = true;
+             if (data.xtreamProfiles.length === 0 && xtreamProfiles.length > 0) {
+               needsPush = true;
+             } else if (data.xtreamProfiles.length > 0) {
+               const merged = [...xtreamProfiles];
+               data.xtreamProfiles.forEach(serverProf => {
+                 if (!merged.some(p => p.host === serverProf.host && p.username === serverProf.username)) {
+                   merged.push(serverProf);
+                 }
+               });
+               if (JSON.stringify(merged) !== JSON.stringify(xtreamProfiles)) {
+                 xtreamProfiles = merged;
+                 renderXtreamProfilesSelect();
+                 updated = true;
+                 needsPush = true;
+               }
+             }
+          } else if (xtreamProfiles.length > 0) {
+            needsPush = true;
           }
+
           if (updated) {
             // Persist back to local storage silently so offline mode has latest data
             const oldSync = isSyncing;
@@ -1056,6 +1107,10 @@
               _safeStorage.setItem('xtream_profiles', JSON.stringify(xtreamProfiles));
             } catch(e) {}
             isSyncing = oldSync;
+          }
+
+          if (needsPush) {
+            syncUserDataToBackend();
           }
         })
         .catch(err => console.warn('Failed to fetch user data from backend:', err));
