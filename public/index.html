@@ -633,6 +633,11 @@
   </main>
 
   <script>
+    // Ensure window.location.origin is defined (fallback for older Smart TV browsers)
+    if (!window.location.origin) {
+      window.location.origin = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+    }
+
     // Safe LocalStorage wrapper to prevent security/quota crashes on restricted Smart TV browsers
     const _safeStorage = (() => {
       try {
@@ -655,16 +660,8 @@
 
     // TV-compatible fetch wrapper - uses XMLHttpRequest as fallback for TVs that lack fetch()
     function tvFetch(url, options) {
-      var ua = navigator.userAgent || '';
-      var isTV = /SmartTV|Tizen|Web0S|webOS|Maples|Opera TV|Viera|BRAVIA|LG Browser|PhilipsTV|NetCast|DuneHD|Roku|AppleTV|AFTB|AFTN|MiTV/i.test(ua);
-      
-      // Force XHR on TV browsers for reliable cross-origin/CORS/Csp/cookie fetch behaviors
-      if (isTV) {
-        console.log('[tvFetch] TV user agent detected. Bypassing native fetch for XMLHttpRequest fallback.');
-        return xhrFetch(url, options);
-      }
-
-      // Use native fetch first if available, with a fallback to XHR on failure
+      // Use native fetch first if available for modern TV browsers to support CORS/redirects correctly,
+      // with a fallback to XHR on failure or if fetch is unsupported.
       if (typeof window.fetch === 'function') {
         return window.fetch(url, options).catch(function(err) {
           console.warn('[tvFetch] Native fetch failed, falling back to XHR:', err);
@@ -783,6 +780,13 @@
       return DEFAULT_PROD_BACKEND;
     }
     let storedBackendUrl = _safeStorage.getItem('sono_backend_url');
+    const cookieBackendUrl = getCookie('sono_backend_url');
+    if (!storedBackendUrl && cookieBackendUrl) {
+      storedBackendUrl = cookieBackendUrl;
+      try {
+        _safeStorage.setItem('sono_backend_url', cookieBackendUrl);
+      } catch (e) {}
+    }
     if (storedBackendUrl && 
         location.hostname !== 'localhost' && 
         location.hostname !== '127.0.0.1' && 
@@ -892,9 +896,28 @@
 
     // Load persisted favorites
     const loadFavorites = () => {
-      try { favorites = JSON.parse(_safeStorage.getItem('favorites') || '[]'); } catch { favorites = []; }
+      try {
+        const localData = _safeStorage.getItem('favorites');
+        const cookieData = getCookie('favorites');
+        favorites = JSON.parse(localData || cookieData || '[]');
+        if (cookieData && !localData) {
+          _safeStorage.setItem('favorites', cookieData);
+        }
+      } catch (e) {
+        favorites = [];
+      }
     };
-    const saveFavorites = () => _safeStorage.setItem('favorites', JSON.stringify(favorites));
+    const saveFavorites = () => {
+      try {
+        const favStr = JSON.stringify(favorites);
+        _safeStorage.setItem('favorites', favStr);
+        if (favStr.length < 4000) {
+          setCookie('favorites', favStr);
+        }
+      } catch (e) {
+        console.warn('Failed to save favorites:', e);
+      }
+    };
     const isFavorite = (ch) => favorites.some(f => f.url === ch.url);
     const toggleFavorite = (ch) => {
       if (isFavorite(ch)) {
@@ -916,14 +939,27 @@
 
     const loadXtreamProfiles = () => {
       try {
-        xtreamProfiles = JSON.parse(_safeStorage.getItem('xtream_profiles') || '[]');
+        const localData = _safeStorage.getItem('xtream_profiles');
+        const cookieData = getCookie('xtream_profiles');
+        xtreamProfiles = JSON.parse(localData || cookieData || '[]');
+        if (cookieData && !localData) {
+          _safeStorage.setItem('xtream_profiles', cookieData);
+        }
       } catch (e) {
         xtreamProfiles = [];
       }
     };
 
     const saveXtreamProfiles = () => {
-      _safeStorage.setItem('xtream_profiles', JSON.stringify(xtreamProfiles));
+      try {
+        const profStr = JSON.stringify(xtreamProfiles);
+        _safeStorage.setItem('xtream_profiles', profStr);
+        if (profStr.length < 4000) {
+          setCookie('xtream_profiles', profStr);
+        }
+      } catch (e) {
+        console.warn('Failed to save Xtream profiles:', e);
+      }
     };
 
     function renderXtreamProfilesSelect() {
@@ -1566,7 +1602,14 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     });
 
     // AI Configuration & Settings Toggling
-    const storedApiKey = _safeStorage.getItem('gemini_api_key');
+    let storedApiKey = _safeStorage.getItem('gemini_api_key');
+    const cookieApiKey = getCookie('gemini_api_key');
+    if (!storedApiKey && cookieApiKey) {
+      storedApiKey = cookieApiKey;
+      try {
+        _safeStorage.setItem('gemini_api_key', cookieApiKey);
+      } catch (e) {}
+    }
     if (storedApiKey) {
       geminiApiKey.value = storedApiKey;
       settingsGeminiApiKey.value = storedApiKey;
@@ -1574,7 +1617,13 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     
     saveApiKeyBtn.addEventListener('click', () => {
       const key = geminiApiKey.value.trim();
-      _safeStorage.setItem('gemini_api_key', key);
+      if (key) {
+        _safeStorage.setItem('gemini_api_key', key);
+        setCookie('gemini_api_key', key);
+      } else {
+        _safeStorage.removeItem('gemini_api_key');
+        eraseCookie('gemini_api_key');
+      }
       settingsGeminiApiKey.value = key;
       saveApiKeyStatus.style.display = 'block';
       saveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
@@ -1585,7 +1634,13 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
 
     settingsSaveApiKeyBtn.addEventListener('click', () => {
       const key = settingsGeminiApiKey.value.trim();
-      _safeStorage.setItem('gemini_api_key', key);
+      if (key) {
+        _safeStorage.setItem('gemini_api_key', key);
+        setCookie('gemini_api_key', key);
+      } else {
+        _safeStorage.removeItem('gemini_api_key');
+        eraseCookie('gemini_api_key');
+      }
       geminiApiKey.value = key;
       settingsSaveApiKeyStatus.style.display = 'block';
       settingsSaveApiKeyStatus.textContent = key ? 'Key saved successfully!' : 'Key cleared!';
@@ -1595,7 +1650,6 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
     });
 
     // Backend URL settings load & save
-    const storedBackendUrl = _safeStorage.getItem('sono_backend_url');
     if (storedBackendUrl) {
       settingsBackendUrl.value = storedBackendUrl;
     }
@@ -1607,9 +1661,11 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       }
       if (url) {
         _safeStorage.setItem('sono_backend_url', url);
+        setCookie('sono_backend_url', url);
         BASE_URL = url;
       } else {
         _safeStorage.removeItem('sono_backend_url');
+        eraseCookie('sono_backend_url');
         BASE_URL = window.SONO_BACKEND_URL || _detectBaseUrl();
       }
       settingsBackendUrl.value = url;
