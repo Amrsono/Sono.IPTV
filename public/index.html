@@ -412,7 +412,6 @@
         <div class="controls-row" style="display: flex; gap: 8px;">
           <button id="loadBtn" class="btn" style="flex-grow: 1;">Load</button>
           <button id="clearBtn" class="btn btn-secondary" style="flex-grow: 1;" title="Clear loaded channels">Clear</button>
-          <button id="demoBtn" class="btn btn-secondary" title="Load Demo Stream">Demo</button>
         </div>
         <!-- Save List Controls -->
         <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
@@ -625,7 +624,7 @@
       <div id="placeholder" class="player-placeholder">
         <div class="placeholder-icon">📺</div>
         <h3>Welcome to SONO Player</h3>
-        <p style="max-width: 400px; font-size: 14px;">Paste an M3U playlist on the left, or load the demo stream to experience live transcoding capabilities.</p>
+        <p style="max-width: 400px; font-size: 14px;">Paste an M3U playlist on the left to experience live transcoding capabilities.</p>
       </div>
 
       <!-- Video Element -->
@@ -759,7 +758,6 @@
     const playlistText = document.getElementById('playlistText');
     const loadBtn = document.getElementById('loadBtn');
     const clearBtn = document.getElementById('clearBtn');
-    const demoBtn = document.getElementById('demoBtn');
     const searchBar = document.getElementById('searchBar');
     const categorySelect = document.getElementById('categorySelect');
     const channelList = document.getElementById('channelList');
@@ -1196,18 +1194,6 @@
       loadPlaylistById(activePlaylistId, true);
     }
 
-    // Load Demo Stream
-    const DEMO_PLAYLIST = `#EXTM3U
-#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/HasanRazaDev/HasanRazaDev/main/assets/live.png" group-title="Live Feeds",Big Buck Bunny (HLS Proxy Demo)
-https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
-#EXTINF:-1 group-title="Documentaries",Sintel Trailer (MP4 Proxy Demo)
-https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
-
-    demoBtn.addEventListener('click', () => {
-      playlistText.value = DEMO_PLAYLIST;
-      selectTab('local');
-      parseAndLoadPlaylist(DEMO_PLAYLIST, false);
-    });
 
     // Parse button trigger
     loadBtn.addEventListener('click', function() {
