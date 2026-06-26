@@ -136,8 +136,8 @@
     }
 
     .btn:hover, .btn:focus-visible {
-      opacity: 0.9;
-      transform: translateY(-1px);
+      opacity: 0.85;
+      filter: brightness(1.15);
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
@@ -231,7 +231,7 @@
 
     .channel-item:hover, .channel-item:focus-visible {
       border-color: var(--accent);
-      transform: translateX(4px);
+      background-color: var(--bg-input);
       outline: none;
     }
 
@@ -440,33 +440,33 @@
       <div class="playlist-input-container">
         <textarea id="playlistText" placeholder="Paste your raw M3U playlist data here..."></textarea>
         <div class="controls-row" style="display: flex; gap: 8px;">
-          <button id="loadBtn" class="btn" style="flex-grow: 1;">Load</button>
-          <button id="clearBtn" class="btn btn-secondary" style="flex-grow: 1;" title="Clear loaded channels">Clear</button>
+          <button type="button" id="loadBtn" class="btn" style="flex-grow: 1;">Load</button>
+          <button type="button" id="clearBtn" class="btn btn-secondary" style="flex-grow: 1;" title="Clear loaded channels">Clear</button>
         </div>
         <!-- Save List Controls -->
         <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
           <input type="text" id="playlistNameInput" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="Playlist name...">
-          <button id="savePlaylistBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save List</button>
+          <button type="button" id="savePlaylistBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save List</button>
         </div>
         <!-- Saved Playlists Selector -->
         <div id="savedPlaylistsContainer" style="display: flex; gap: 8px; align-items: center; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px;">
           <select id="savedPlaylistsSelect" class="category-select" style="padding: 6px 10px; font-size: 12px; flex-grow: 1; height: 32px;">
             <option value="">-- No Saved Playlists --</option>
           </select>
-          <button id="loadSavedPlaylistBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Load</button>
-          <button id="deletePlaylistBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; height: 32px; border-color: #ef233c; color: #ef233c; display: flex; align-items: center; justify-content: center;" title="Delete selected playlist">🗑️</button>
+          <button type="button" id="loadSavedPlaylistBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Load</button>
+          <button type="button" id="deletePlaylistBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; height: 32px; border-color: #ef233c; color: #ef233c; display: flex; align-items: center; justify-content: center;" title="Delete selected playlist">🗑️</button>
         </div>
       </div>
     </div>
 
     <div class="search-filter-container">
         <div class="search-tabs" style="display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap;">
-          <button id="tabLocal" class="btn btn-secondary active" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Local</button>
-          <button id="tabInternet" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Web</button>
-          <button id="tabFavorites" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Favs (<span id="favCount">0</span>)</button>
-          <button id="tabAi" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">AI</button>
-          <button id="tabXtream" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Xtream</button>
-          <button id="tabSettings" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Settings</button>
+          <button type="button" id="tabLocal" class="btn btn-secondary active" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Local</button>
+          <button type="button" id="tabInternet" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Web</button>
+          <button type="button" id="tabFavorites" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Favs (<span id="favCount">0</span>)</button>
+          <button type="button" id="tabAi" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">AI</button>
+          <button type="button" id="tabXtream" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Xtream</button>
+          <button type="button" id="tabSettings" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Settings</button>
         </div>
       <input type="text" id="searchBar" class="search-bar" placeholder="Search local channels...">
       <select id="categorySelect" class="category-select">
@@ -492,7 +492,7 @@
           <p style="color: var(--text-muted); line-height: 1.4;">Provide a Gemini API Key to enable AI-powered channel searches and stream filtering.</p>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="password" id="geminiApiKey" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="AIzaSy... (saved in browser)">
-            <button id="saveApiKeyBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save Key</button>
+            <button type="button" id="saveApiKeyBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save Key</button>
           </div>
           <div id="saveApiKeyStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">Key saved successfully!</div>
         </div>
@@ -509,7 +509,7 @@
       <!-- Input box -->
       <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
         <input type="text" id="aiInput" class="search-bar" style="flex-grow: 1;" placeholder="Ask AI to find channels...">
-        <button id="aiSendBtn" class="btn" style="padding: 10px 14px; flex-shrink: 0;" title="Send prompt">➔</button>
+        <button type="button" id="aiSendBtn" class="btn" style="padding: 10px 14px; flex-shrink: 0;" title="Send prompt">➔</button>
       </div>
     </div>
 
@@ -528,7 +528,7 @@
             <select id="xtreamProfileSelect" class="category-select" style="padding: 6px 10px; font-size: 12px; flex-grow: 1; height: 32px;">
               <option value="">-- New Server Profile --</option>
             </select>
-            <button id="xtreamDeleteProfileBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; height: 32px; border-color: #ef233c; color: #ef233c; display: none;" title="Delete Profile">🗑️</button>
+            <button type="button" id="xtreamDeleteProfileBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; height: 32px; border-color: #ef233c; color: #ef233c; display: none;" title="Delete Profile">🗑️</button>
           </div>
 
           <input type="text" id="xtreamProfileName" class="search-bar" style="padding: 8px 10px; font-size: 12px;" placeholder="Profile Name (e.g. My Provider)">
@@ -537,8 +537,8 @@
           <input type="password" id="xtreamPassword" class="search-bar" style="padding: 8px 10px; font-size: 12px;" placeholder="Password">
           
           <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
-            <button id="xtreamSaveProfileBtn" class="btn btn-secondary" style="flex: 1; padding: 6px 12px; font-size: 12px; height: 32px;">Save Profile</button>
-            <button id="xtreamLoadBtn" class="btn" style="flex: 1.5; padding: 6px 12px; font-size: 12px; height: 32px; font-weight: 700;">Load Streams</button>
+            <button type="button" id="xtreamSaveProfileBtn" class="btn btn-secondary" style="flex: 1; padding: 6px 12px; font-size: 12px; height: 32px;">Save Profile</button>
+            <button type="button" id="xtreamLoadBtn" class="btn" style="flex: 1.5; padding: 6px 12px; font-size: 12px; height: 32px; font-weight: 700;">Load Streams</button>
           </div>
           <div id="xtreamStatusMsg" style="font-size: 11px; color: var(--accent-neon); display: none;">Saved successfully!</div>
         </div>
@@ -548,9 +548,9 @@
       <div id="xtreamFilterArea" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
         <!-- Stream Type Tab selector -->
         <div style="display: flex; gap: 4px;">
-          <button id="xtreamTypeLive" class="btn btn-secondary active" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Live</button>
-          <button id="xtreamTypeMovie" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Movies</button>
-          <button id="xtreamTypeSeries" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Series</button>
+          <button type="button" id="xtreamTypeLive" class="btn btn-secondary active" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Live</button>
+          <button type="button" id="xtreamTypeMovie" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Movies</button>
+          <button type="button" id="xtreamTypeSeries" class="btn btn-secondary" style="flex: 1; padding: 6px 4px; font-size: 11px; white-space: nowrap;">Series</button>
         </div>
         <input type="text" id="xtreamSearchBar" class="search-bar" placeholder="Search loaded streams...">
         <select id="xtreamCategorySelect" class="category-select">
@@ -579,7 +579,7 @@
           </p>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="password" id="settingsGeminiApiKey" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="AIzaSy... (saved in browser)">
-            <button id="settingsSaveApiKeyBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save Key</button>
+            <button type="button" id="settingsSaveApiKeyBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save Key</button>
           </div>
           <div id="settingsSaveApiKeyStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">Key saved successfully!</div>
         </div>
@@ -593,7 +593,7 @@
           </p>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="settingsBackendUrl" class="search-bar" style="padding: 6px 10px; font-size: 12px; flex-grow: 1;" placeholder="https://your-backend.up.railway.app">
-            <button id="settingsSaveBackendBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save URL</button>
+            <button type="button" id="settingsSaveBackendBtn" class="btn" style="padding: 6px 12px; font-size: 12px; height: 32px; white-space: nowrap;">Save URL</button>
           </div>
           <div id="settingsSaveBackendStatus" style="font-size: 11px; color: var(--accent-neon); display: none;">URL saved successfully!</div>
         </div>
