@@ -297,7 +297,7 @@ app.get('/stream', async (req, res) => {
   }
 
   // Limit concurrent active streams to protect the server
-  const MAX_CONCURRENT_STREAMS = 3;
+  const MAX_CONCURRENT_STREAMS = 5;
   if (activeStreams.size >= MAX_CONCURRENT_STREAMS) {
     let oldestKey = null;
     let oldestTime = Infinity;
@@ -826,10 +826,10 @@ function cleanupStream(streamUrl) {
   activeStreams.delete(streamUrl);
 }
 
-// Cleanup inactive streams periodically (every 5 seconds)
+// Cleanup inactive streams periodically (every 10 seconds)
 setInterval(() => {
   const now = Date.now();
-  const maxInactivity = 15000; // 15 seconds
+  const maxInactivity = 60000; // 60 seconds
 
   for (const [url, streamInfo] of activeStreams.entries()) {
     if (now - streamInfo.lastAccessed > maxInactivity) {
@@ -837,7 +837,7 @@ setInterval(() => {
       cleanupStream(url);
     }
   }
-}, 5000);
+}, 10000);
 
 // Start Server
 app.listen(PORT, () => {
