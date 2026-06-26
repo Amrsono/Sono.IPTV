@@ -661,15 +661,23 @@
 
     // TV-compatible fetch wrapper - uses XMLHttpRequest as fallback for TVs that lack fetch()
     function tvFetch(url, options) {
-      // Use native fetch first if available for modern TV browsers to support CORS/redirects correctly,
-      // with a fallback to XHR on failure or if fetch is unsupported.
-      if (typeof window.fetch === 'function') {
-        return window.fetch(url, options).catch(function(err) {
-          console.warn('[tvFetch] Native fetch failed, falling back to XHR:', err);
-          return xhrFetch(url, options);
-        });
-      }
-      return xhrFetch(url, options);
+      return new Promise(function(resolve, reject) {
+        if (typeof window.fetch === 'function') {
+          try {
+            window.fetch(url, options)
+              .then(resolve)
+              .catch(function(err) {
+                console.warn('[tvFetch] Native fetch failed, falling back to XHR:', err);
+                xhrFetch(url, options).then(resolve).catch(reject);
+              });
+          } catch(err) {
+            console.warn('[tvFetch] Native fetch threw synchronously, falling back to XHR:', err);
+            xhrFetch(url, options).then(resolve).catch(reject);
+          }
+        } else {
+          xhrFetch(url, options).then(resolve).catch(reject);
+        }
+      });
     }
 
     function xhrFetch(url, options) {
@@ -766,6 +774,7 @@
     const DEFAULT_PROD_BACKEND = 'https://sono-iptv-backend-production.up.railway.app';
     // Detect if running on local network (LAN IP or localhost) to use current origin as backend
     function _detectBaseUrl() {
+      if (location.protocol === 'file:') return DEFAULT_PROD_BACKEND;
       var h = location.hostname;
       // If we are served via HTTP, we are likely running locally or on a LAN server.
       // Also catch standard loopback, local hostname patterns, and private IP subnets.
@@ -773,7 +782,7 @@
           h === 'localhost' || 
           h === '127.0.0.1' || 
           h === '[::1]' ||
-          !h.includes('.') || 
+          (h && !h.includes('.')) || 
           /\.(local|lan|home|internal|test|localhost)$/i.test(h) ||
           /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) {
         return location.origin;
