@@ -123,11 +123,14 @@
       justify-content: center;
       gap: 8px;
       transition: all 0.2s;
+      touch-action: manipulation;
     }
 
-    .btn:hover {
+    .btn:hover, .btn:focus-visible {
       opacity: 0.9;
       transform: translateY(-1px);
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     .btn-secondary {
@@ -136,7 +139,7 @@
       color: var(--text-main);
     }
 
-    .btn-secondary:hover {
+    .btn-secondary:hover, .btn-secondary:focus-visible {
       background: var(--bg-input);
     }
 
@@ -209,11 +212,13 @@
       align-items: center;
       gap: 12px;
       transition: all 0.2s;
+      touch-action: manipulation;
     }
 
-    .channel-item:hover {
+    .channel-item:hover, .channel-item:focus-visible {
       border-color: var(--accent);
       transform: translateX(4px);
+      outline: none;
     }
 
     .channel-item.active {
@@ -2143,6 +2148,7 @@
         // Render series seasons/episodes subview
         const backBtn = document.createElement('div');
         backBtn.className = 'channel-item';
+        backBtn.tabIndex = 0;
         backBtn.style.cssText = 'background: rgba(94, 96, 206, 0.1); border-color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; cursor: pointer;';
         backBtn.textContent = '⬅️ Back to Series List';
         backBtn.addEventListener('click', () => {
@@ -2197,6 +2203,7 @@
           episodes.forEach(ep => {
             const div = document.createElement('div');
             div.className = 'channel-item';
+            div.tabIndex = 0;
             
             const logo = document.createElement('div');
             logo.className = 'channel-logo';
@@ -2262,6 +2269,7 @@
       filtered.forEach(ch => {
         const div = document.createElement('div');
         div.className = 'channel-item';
+        div.tabIndex = 0;
 
         const favStar = document.createElement('span');
         favStar.className = 'fav-star';
@@ -2371,6 +2379,18 @@
     aiInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendAiPrompt();
     });
+
+    // D-Pad Compatibility: Map 'Enter' to click for focused custom elements (crucial for Smart TVs)
+    document.addEventListener('keydown', function(e) {
+      if (e.keyCode === 13 || e.key === 'Enter') {
+        const el = document.activeElement;
+        if (el && el !== document.body && typeof el.click === 'function' && el.tagName !== 'BUTTON' && el.tagName !== 'A' && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
+          el.click();
+          e.preventDefault();
+        }
+      }
+    });
+
   </script>
 </body>
 </html>
