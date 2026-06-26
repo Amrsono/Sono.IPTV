@@ -32,6 +32,15 @@
       font-family: 'Outfit', sans-serif;
     }
 
+    /* Prevent text selection on interactive elements — critical for touch UIs */
+    button, .btn, .channel-item, .fav-star, select, label {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
       background-color: var(--bg-main);
       color: var(--text-main);
@@ -188,6 +197,11 @@
       font-size: 14px;
       outline: none;
       cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .category-select:focus {
+      border-color: var(--accent);
     }
 
     .channel-list-wrapper {
@@ -256,6 +270,17 @@
       white-space: nowrap;
       text-overflow: ellipsis;
       overflow: hidden;
+    }
+
+    /* Fav star — bigger tap target for touchscreens */
+    .fav-star {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      min-height: 36px;
+      touch-action: manipulation;
+      cursor: pointer;
     }
 
     .channel-group {
@@ -459,7 +484,7 @@
     <div id="aiContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
       <!-- Collapsible Settings -->
       <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="aiSettingsHeader">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="aiSettingsHeader" tabindex="0" role="button" aria-expanded="false">
           <span style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">⚙️ Gemini API Configuration</span>
           <span id="aiSettingsArrow" style="transition: transform 0.2s;">▼</span>
         </div>
@@ -492,7 +517,7 @@
     <div id="xtreamContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
       <!-- Collapsible Server Config Form -->
       <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; font-size: 13px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="xtreamFormHeader">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="xtreamFormHeader" tabindex="0" role="button" aria-expanded="false">
           <span style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">🔌 Xtream Codes Server API</span>
           <span id="xtreamFormArrow" style="transition: transform 0.2s;">▼</span>
         </div>
@@ -603,7 +628,7 @@
             <span id="statusText">No Stream Loaded</span>
           </div>
         </div>
-        <span id="favToggle" class="fav-star" title="Add to favorites" style="margin-left: auto; cursor: pointer; font-size: 20px;">☆</span>
+        <span id="favToggle" class="fav-star" title="Add to favorites" tabindex="0" role="button" style="margin-left: auto; font-size: 20px;">☆</span>
       </div>
       <div class="quality-selector-container" style="display: flex; align-items: center; gap: 8px;">
         <label for="qualitySelect" style="font-size: 14px; color: var(--text-muted);">Quality:</label>
@@ -1798,9 +1823,15 @@
     });
 
     aiSettingsHeader.addEventListener('click', () => {
-      const isCollapsed = aiSettingsContent.style.display === 'none' || aiSettingsContent.style.display === '';
-      aiSettingsContent.style.display = isCollapsed ? 'flex' : 'none';
-      aiSettingsArrow.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+      const content = document.getElementById('aiSettingsContent');
+      const arrow = document.getElementById('aiSettingsArrow');
+      const isOpen = content.style.display !== 'none';
+      content.style.display = isOpen ? 'none' : 'flex';
+      arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+      aiSettingsHeader.setAttribute('aria-expanded', !isOpen);
+    });
+    aiSettingsHeader.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.keyCode === 13) { aiSettingsHeader.click(); e.preventDefault(); }
     });
 
     // AI search execution
@@ -1846,6 +1877,7 @@
           data.channels.forEach(ch => {
             const card = document.createElement('div');
             card.className = 'channel-item';
+            card.tabIndex = 0;
             card.style.cssText = 'padding: 8px 12px; font-size: 13px; cursor: default; margin-bottom: 0;';
             
             // Play Button
@@ -1955,11 +1987,17 @@
 
     // Xtream Codes UI Collapsible Form
     xtreamFormHeader.addEventListener('click', () => {
-      const isCollapsed = xtreamFormContent.style.display === 'none' || xtreamFormContent.style.display === '';
-      xtreamFormContent.style.display = isCollapsed ? 'flex' : 'none';
-      xtreamFormArrow.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
-      xtreamFormArrow.textContent = isCollapsed ? '▲' : '▼';
+      const content = document.getElementById('xtreamFormContent');
+      const arrow = document.getElementById('xtreamFormArrow');
+      const isOpen = content.style.display !== 'none';
+      content.style.display = isOpen ? 'none' : 'flex';
+      arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+      xtreamFormHeader.setAttribute('aria-expanded', !isOpen);
     });
+    xtreamFormHeader.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.keyCode === 13) { xtreamFormHeader.click(); e.preventDefault(); }
+    });
+
 
     // Populate saved profiles
     renderXtreamProfilesSelect();
