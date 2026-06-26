@@ -604,6 +604,7 @@
       <div class="quality-selector-container" style="display: flex; align-items: center; gap: 8px;">
         <label for="qualitySelect" style="font-size: 14px; color: var(--text-muted);">Quality:</label>
         <select id="qualitySelect" class="category-select" style="width: auto; padding: 6px 12px; font-size: 13px;">
+          <option value="direct">Direct (No Proxy)</option>
           <option value="auto">Auto (Source)</option>
           <option value="high">720p (High)</option>
           <option value="medium">480p (Medium)</option>
@@ -1419,9 +1420,9 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       statusDot.className = 'status-dot';
       statusText.textContent = 'Connecting...';
 
-      // Setup Proxy Stream URL
+      // Setup Play Stream URL
       const quality = document.getElementById('qualitySelect').value;
-      const proxyUrl = `${BASE_URL}/stream?url=${encodeURIComponent(channel.url)}&quality=${quality}`;
+      const playUrl = (quality === 'direct') ? channel.url : `${BASE_URL}/stream?url=${encodeURIComponent(channel.url)}&quality=${quality}`;
 
       // Destroy old Hls instance
       if (hls) {
@@ -1431,18 +1432,19 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
 
       if (Hls.isSupported()) {
         hls = new Hls({
-          maxBufferLength: 10,
-          liveSyncDuration: 3,
-          liveMaxLatencyDuration: 6
+          maxBufferLength: 30, // Increased to 30s to absorb network jitter
+          maxMaxBufferLength: 60,
+          enableWorker: true
         });
-        hls.loadSource(proxyUrl);
+        hls.loadSource(playUrl);
         hls.attachMedia(videoPlayer);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           playerLoader.style.display = 'none';
           videoPlayer.play().catch(e => console.log('Auto-play blocked, requiring user click.', e));
           statusDot.className = 'status-dot active';
-          statusText.textContent = 'Transcoding & Streaming';
+          statusText.textContent = (quality === 'direct') ? 'Direct Streaming' : 
+                                   (quality === 'auto') ? 'Proxying (Source)' : 'Transcoding & Streaming';
         });
 
         hls.on(Hls.Events.ERROR, (event, data) => {
@@ -1455,12 +1457,12 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
         });
       } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
         // Fallback for native HLS (Safari)
-        videoPlayer.src = proxyUrl;
+        videoPlayer.src = playUrl;
         videoPlayer.addEventListener('loadedmetadata', () => {
           playerLoader.style.display = 'none';
           videoPlayer.play();
           statusDot.className = 'status-dot active';
-          statusText.textContent = 'Streaming';
+          statusText.textContent = (quality === 'direct') ? 'Direct Streaming' : 'Streaming';
         });
       } else {
         alert('Your browser does not support HLS streaming.');

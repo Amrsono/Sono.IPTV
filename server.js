@@ -250,13 +250,31 @@ app.get('/stream', async (req, res) => {
     return res.redirect(`/streams/${streamId}/playlist.m3u8`);
   }
 
+  // Limit concurrent active streams to protect the server
+  const MAX_CONCURRENT_STREAMS = 3;
+  if (activeStreams.size >= MAX_CONCURRENT_STREAMS) {
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    for (const [key, streamInfo] of activeStreams.entries()) {
+      if (streamInfo.lastAccessed < oldestTime) {
+        oldestTime = streamInfo.lastAccessed;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      console.log(`Max concurrent streams reached (${MAX_CONCURRENT_STREAMS}). Terminating oldest stream: ${oldestKey}`);
+      cleanupStream(oldestKey);
+    }
+  }
+
   // Create workspace for this stream
   if (!fs.existsSync(streamDir)) {
     fs.mkdirSync(streamDir, { recursive: true });
   }
 
   const preset = QUALITY_PRESETS[quality];
-  console.log(`Starting transcoding [${quality}] for: ${streamUrl}`);
+  const isCopy = quality === 'auto';
+  console.log(`Starting stream proxy [${quality}] for: ${streamUrl}`);
 
   // Construct browser-like headers
   const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
@@ -271,13 +289,16 @@ app.get('/stream', async (req, res) => {
   const outputOpts = [
     '-f hls',
     '-hls_time 2',
-    '-hls_list_size 3',
+    '-hls_list_size 6', // Increased from 3 to 6 to buffer up to 12s of video
     '-hls_flags delete_segments',
-    '-preset ultrafast',
-    '-tune zerolatency',
-    '-g 30',
     '-copyts',
   ];
+
+  if (!isCopy) {
+    outputOpts.push('-preset ultrafast');
+    outputOpts.push('-tune zerolatency');
+    outputOpts.push('-g 30');
+  }
 
   // Apply quality-specific options
   if (preset.scale) {
@@ -289,13 +310,23 @@ app.get('/stream', async (req, res) => {
     outputOpts.push(`-bufsize ${preset.videoBitrate}`);
   }
 
-  const command = ffmpeg(streamUrl)
+  let command = ffmpeg(streamUrl)
     .addInputOption('-headers', headers)
     .addInputOption('-probesize', '1000000')
-    .addInputOption('-analyzeduration', '1000000')
-    .videoCodec('libx264')
-    .audioCodec('aac')
-    .audioBitrate('128k')
+    .addInputOption('-analyzeduration', '1000000');
+
+  if (isCopy) {
+    command = command
+      .videoCodec('copy')
+      .audioCodec('copy');
+  } else {
+    command = command
+      .videoCodec('libx264')
+      .audioCodec('aac')
+      .audioBitrate('128k');
+  }
+
+  command = command
     .outputOptions(outputOpts)
     .output(playlistPath)
     .on('start', (commandLine) => {
@@ -749,10 +780,10 @@ function cleanupStream(streamUrl) {
   activeStreams.delete(streamUrl);
 }
 
-// Cleanup inactive streams periodically (every 10 seconds)
+// Cleanup inactive streams periodically (every 5 seconds)
 setInterval(() => {
   const now = Date.now();
-  const maxInactivity = 30000; // 30 seconds
+  const maxInactivity = 15000; // 15 seconds
 
   for (const [url, streamInfo] of activeStreams.entries()) {
     if (now - streamInfo.lastAccessed > maxInactivity) {
@@ -760,7 +791,7 @@ setInterval(() => {
       cleanupStream(url);
     }
   }
-}, 10000);
+}, 5000);
 
 // Start Server
 app.listen(PORT, () => {
