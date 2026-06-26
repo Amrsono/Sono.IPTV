@@ -95,6 +95,52 @@ app.use('/streams', (req, res, next) => {
 // Serve other public assets (like frontend)
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Persistent directory for user data
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+const USER_DATA_FILE = path.join(DATA_DIR, 'userdata.json');
+
+// /api/userdata endpoint to fetch global state
+app.get('/api/userdata', (req, res) => {
+  try {
+    if (fs.existsSync(USER_DATA_FILE)) {
+      const data = fs.readFileSync(USER_DATA_FILE, 'utf8');
+      res.json(JSON.parse(data));
+    } else {
+      res.json({});
+    }
+  } catch (err) {
+    console.error('Error reading userdata:', err);
+    res.status(500).json({ error: 'Failed to read userdata' });
+  }
+});
+
+// /api/userdata endpoint to save global state
+app.post('/api/userdata', (req, res) => {
+  try {
+    const data = req.body;
+    let existingData = {};
+    if (fs.existsSync(USER_DATA_FILE)) {
+      try {
+        existingData = JSON.parse(fs.readFileSync(USER_DATA_FILE, 'utf8'));
+      } catch (e) {}
+    }
+    
+    // Merge updates
+    if (data.playlistRegistry !== undefined) existingData.playlistRegistry = data.playlistRegistry;
+    if (data.favorites !== undefined) existingData.favorites = data.favorites;
+    if (data.xtreamProfiles !== undefined) existingData.xtreamProfiles = data.xtreamProfiles;
+    
+    fs.writeFileSync(USER_DATA_FILE, JSON.stringify(existingData, null, 2), 'utf8');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error saving userdata:', err);
+    res.status(500).json({ error: 'Failed to save userdata' });
+  }
+});
+
 // /playlist endpoint to fetch remote M3U files (bypassing CORS)
 app.get('/playlist', async (req, res) => {
   const playlistUrl = req.query.url;

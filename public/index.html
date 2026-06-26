@@ -741,6 +741,7 @@
       } catch (e) {
         console.warn('Failed to save playlist registry:', e);
       }
+      syncUserDataToBackend();
     }
 
     function saveActivePlaylistId(id) {
@@ -927,6 +928,7 @@
       } catch (e) {
         console.warn('Failed to save favorites:', e);
       }
+      syncUserDataToBackend();
     };
     const isFavorite = (ch) => favorites.some(f => f.url === ch.url);
     const toggleFavorite = (ch) => {
@@ -970,6 +972,7 @@
       } catch (e) {
         console.warn('Failed to save Xtream profiles:', e);
       }
+      syncUserDataToBackend();
     };
 
     function renderXtreamProfilesSelect() {
@@ -1000,6 +1003,66 @@
     } catch (e) {
       playlistRegistry = [];
     }
+
+    // Backend Sync Functions
+    let isSyncing = false;
+
+    function syncUserDataToBackend() {
+      if (isSyncing) return;
+      isSyncing = true;
+      tvFetch(BASE_URL + '/api/userdata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playlistRegistry: playlistRegistry,
+          favorites: favorites,
+          xtreamProfiles: xtreamProfiles
+        })
+      }).catch(err => {
+        console.warn('Failed to sync user data to backend:', err);
+      }).then(() => {
+        isSyncing = false;
+      });
+    }
+
+    function fetchUserDataFromBackend() {
+      tvFetch(BASE_URL + '/api/userdata')
+        .then(res => res.json())
+        .then(data => {
+          let updated = false;
+          if (data.playlistRegistry && Array.isArray(data.playlistRegistry)) {
+            playlistRegistry = data.playlistRegistry;
+            renderPlaylistsSelect();
+            updated = true;
+          }
+          if (data.favorites && Array.isArray(data.favorites)) {
+            favorites = data.favorites;
+            document.getElementById('favCount').textContent = favorites.length;
+            if (currentTab === 'favorites') selectTab('favorites');
+            updated = true;
+          }
+          if (data.xtreamProfiles && Array.isArray(data.xtreamProfiles)) {
+            xtreamProfiles = data.xtreamProfiles;
+            renderXtreamProfilesSelect();
+            updated = true;
+          }
+          if (updated) {
+            // Persist back to local storage silently so offline mode has latest data
+            const oldSync = isSyncing;
+            isSyncing = true; // Prevent loop
+            try {
+              _safeStorage.setItem('saved_playlists_registry', JSON.stringify(playlistRegistry));
+              _safeStorage.setItem('favorites', JSON.stringify(favorites));
+              _safeStorage.setItem('xtream_profiles', JSON.stringify(xtreamProfiles));
+            } catch(e) {}
+            isSyncing = oldSync;
+          }
+        })
+        .catch(err => console.warn('Failed to fetch user data from backend:', err));
+    }
+
+    // Attempt backend sync on load
+    fetchUserDataFromBackend();
 
     let activePlaylistId = _safeStorage.getItem('active_playlist_id') || getCookie('active_playlist_id') || '';
 
