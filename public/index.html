@@ -1023,7 +1023,7 @@
 
       const cachedContent = _safeStorage.getItem(`playlist_content_${id}`);
 
-      if (triggerLiveFetch && (pl.input.startsWith('http://') || pl.input.startsWith('https://'))) {
+      if (triggerLiveFetch && /^https?:\/\//i.test(pl.input)) {
         channelList.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px; font-size: 13px;">Loading channels from URL...</div>';
         tvFetch(BASE_URL + '/playlist?url=' + encodeURIComponent(pl.input))
           .then(function(res) {
@@ -1092,7 +1092,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
 
       selectTab('local');
 
-      if (text.startsWith('http://') || text.startsWith('https://')) {
+      if (/^https?:\/\//i.test(text)) {
         loadBtn.disabled = true;
         loadBtn.textContent = 'Fetching...';
         tvFetch(BASE_URL + '/playlist?url=' + encodeURIComponent(text))
@@ -1144,7 +1144,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
       savePlaylistRegistry();
       playlistNameInput.value = '';
       
-      if (input.startsWith('http://') || input.startsWith('https://')) {
+      if (/^https?:\/\//i.test(input)) {
         savePlaylistBtn.disabled = true;
         savePlaylistBtn.textContent = 'Saving...';
         tvFetch(BASE_URL + '/playlist?url=' + encodeURIComponent(input))
@@ -1658,7 +1658,7 @@ https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
 
     settingsSaveBackendBtn.addEventListener('click', () => {
       let url = settingsBackendUrl.value.trim();
-      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+      if (url && !/^https?:\/\//i.test(url)) {
         url = 'https://' + url;
       }
       if (url) {
