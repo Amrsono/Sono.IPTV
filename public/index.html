@@ -206,8 +206,10 @@
 
     .channel-list-wrapper {
       flex-grow: 1;
-      overflow-y: auto;
+      overflow-y: scroll;
       padding: 16px 24px;
+      scrollbar-width: auto;
+      scrollbar-color: var(--border) var(--bg-sidebar);
     }
 
     .channel-list {
@@ -414,14 +416,16 @@
 
     /* Scrollbar Style */
     ::-webkit-scrollbar {
-      width: 6px;
+      width: 14px;
     }
     ::-webkit-scrollbar-track {
       background: var(--bg-sidebar);
+      border-left: 1px solid var(--border);
     }
     ::-webkit-scrollbar-thumb {
       background: var(--border);
-      border-radius: 3px;
+      border-radius: 7px;
+      border: 3px solid var(--bg-sidebar);
     }
     ::-webkit-scrollbar-thumb:hover {
       background: var(--accent);
@@ -559,7 +563,7 @@
       </div>
 
       <!-- Xtream Channels/Streams List -->
-      <div class="channel-list-wrapper" style="padding: 0; flex-grow: 1; overflow-y: auto;">
+      <div class="channel-list-wrapper" style="padding: 0; flex-grow: 1; overflow-y: scroll;">
         <div id="xtreamChannelList" class="channel-list">
           <div style="color: var(--text-muted); text-align: center; margin-top: 30px; font-size: 13px;">Enter Xtream server credentials & click Load Streams.</div>
         </div>
@@ -1462,6 +1466,7 @@
       channels.forEach(ch => {
         const div = document.createElement('div');
         div.className = 'channel-item';
+        div.tabIndex = 0; // Ensure TV remote navigation works
 
         // Favorite star button — built as DOM node to keep the event listener
         const favStar = document.createElement('span');
