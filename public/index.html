@@ -59,6 +59,8 @@
       height: 100%;
       flex-shrink: 0;
       transition: transform 0.3s ease;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .sidebar-header {
@@ -206,10 +208,7 @@
 
     .channel-list-wrapper {
       flex-grow: 1;
-      overflow-y: scroll;
       padding: 16px 24px;
-      scrollbar-width: auto;
-      scrollbar-color: var(--border) var(--bg-sidebar);
     }
 
     .channel-list {
@@ -485,7 +484,7 @@
     </div>
 
     <!-- AI Search Container -->
-    <div id="aiContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
+    <div id="aiContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: visible; padding: 16px 24px 24px 24px;">
       <!-- Collapsible Settings -->
       <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="aiSettingsHeader" tabindex="0" role="button" aria-expanded="false">
@@ -503,7 +502,7 @@
       </div>
 
       <!-- Chat History -->
-      <div id="aiChatHistory" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; padding-right: 4px;">
+      <div id="aiChatHistory" style="flex-grow: 1; overflow: visible; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; padding-right: 4px;">
         <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text-muted); line-height: 1.4;">
           👋 <strong>AI Assistant</strong><br>
           Tell me what streams you want to find (e.g. <em>"Spanish sports channels"</em>, <em>"UK news"</em>, or <em>"children's cartoons"</em>). I'll find them and present play options here!
@@ -518,7 +517,7 @@
     </div>
 
     <!-- Xtream Codes Container -->
-    <div id="xtreamContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
+    <div id="xtreamContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: visible; padding: 16px 24px 24px 24px;">
       <!-- Collapsible Server Config Form -->
       <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; font-size: 13px;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="xtreamFormHeader" tabindex="0" role="button" aria-expanded="false">
@@ -563,7 +562,7 @@
       </div>
 
       <!-- Xtream Channels/Streams List -->
-      <div class="channel-list-wrapper" style="padding: 0; flex-grow: 1; overflow-y: scroll;">
+      <div class="channel-list-wrapper" style="padding: 0; flex-grow: 1; overflow: visible;">
         <div id="xtreamChannelList" class="channel-list">
           <div style="color: var(--text-muted); text-align: center; margin-top: 30px; font-size: 13px;">Enter Xtream server credentials & click Load Streams.</div>
         </div>
@@ -571,7 +570,7 @@
     </div>
 
     <!-- Settings Container -->
-    <div id="settingsContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden; padding: 16px 24px 24px 24px;">
+    <div id="settingsContainer" style="display: none; flex-direction: column; flex-grow: 1; overflow: visible; padding: 16px 24px 24px 24px;">
       <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
         <h3 style="margin: 0; color: var(--text-main); font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; align-items: center; gap: 6px;">⚙️ Settings</h3>
         
