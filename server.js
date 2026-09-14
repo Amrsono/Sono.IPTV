@@ -496,6 +496,22 @@ Return ONLY a valid JSON object matching this schema. Do not wrap in markdown co
     } catch (err) {
       console.error('Gemini API call failed error:', err.message);
     }
+
+    // If Gemini returned empty keywords, extract them from the raw prompt as a fallback.
+    // This is the most common cause of "same results for every search" — Gemini sometimes
+    // returns search_keywords: [] for short or ambiguous prompts.
+    if (!searchParams.search_keywords || searchParams.search_keywords.length === 0) {
+      const STOP_WORDS = new Set(['find', 'me', 'i', 'want', 'to', 'watch', 'channels', 'channel',
+        'list', 'out', 'of', 'the', 'internet', 'for', 'in', 'show', 'search', 'give', 'some',
+        'please', 'a', 'an', 'and', 'or', 'with', 'from', 'about', 'get', 'all']);
+      const fallbackWords = prompt.toLowerCase().trim().split(/\s+/)
+        .filter(w => w.length > 1 && !STOP_WORDS.has(w));
+      if (fallbackWords.length > 0) {
+        searchParams.search_keywords = fallbackWords;
+        console.log('[AI Search] Gemini returned empty keywords — using prompt words as fallback:', fallbackWords);
+      }
+    }
+
   } else {
     // Local heuristic fallback parser
     const promptLower = prompt.toLowerCase().trim();
@@ -517,9 +533,11 @@ Return ONLY a valid JSON object matching this schema. Do not wrap in markdown co
     else if (promptLower.includes('portuguese') || promptLower.includes('portugues') || promptLower.includes('por')) searchParams.language = 'por';
 
     // Extract keywords (filter out common helper words)
-    const words = promptLower.split(/\s+/).filter(word => 
-      !['find', 'me', 'i', 'want', 'to', 'watch', 'channels', 'channel', 'list', 'out', 'of', 'the', 'internet', 'for', 'in', 'show', 'search', 'give', 'sports', 'sport', 'news', 'music', 'movies', 'movie', 'kids', 'kid', 'cartoon', 'spanish', 'english', 'french', 'german', 'italian', 'portuguese'].includes(word)
-    );
+    const STOP_WORDS = new Set(['find', 'me', 'i', 'want', 'to', 'watch', 'channels', 'channel',
+      'list', 'out', 'of', 'the', 'internet', 'for', 'in', 'show', 'search', 'give', 'sports',
+      'sport', 'news', 'music', 'movies', 'movie', 'kids', 'kid', 'cartoon', 'spanish', 'english',
+      'french', 'german', 'italian', 'portuguese']);
+    const words = promptLower.split(/\s+/).filter(w => w.length > 1 && !STOP_WORDS.has(w));
     if (words.length > 0) {
       searchParams.search_keywords = words;
     }
@@ -533,6 +551,16 @@ Return ONLY a valid JSON object matching this schema. Do not wrap in markdown co
     await loadIptvOrgData();
     if (iptvOrgChannels && iptvOrgStreams) {
       const { category, language, country, search_keywords } = searchParams;
+
+      // Guard: if no filters at all were extracted, refuse to return generic results.
+      const hasFilters = (search_keywords && search_keywords.length > 0) || category || language || country;
+      if (!hasFilters) {
+        console.warn('[AI Search] No search filters extracted — refusing to return unfiltered results.');
+        return res.json({
+          explanation: "I couldn't understand what channels to search for. Please try being more specific, e.g. \"BBC news\", \"Spanish sports channels\", or \"CNN\".",
+          channels: []
+        });
+      }
       
       const matchedChannels = iptvOrgChannels.filter(ch => {
         // Category check
@@ -547,7 +575,7 @@ Return ONLY a valid JSON object matching this schema. Do not wrap in markdown co
         if (country && (!ch.countries || !ch.countries.includes(country))) {
           return false;
         }
-        // Keywords check
+        // Keywords check — must match at least one keyword
         if (search_keywords && search_keywords.length > 0) {
           const nameLower = ch.name ? ch.name.toLowerCase() : '';
           const matchKeyword = search_keywords.some(kw => nameLower.includes(kw));
@@ -556,12 +584,17 @@ Return ONLY a valid JSON object matching this schema. Do not wrap in markdown co
         return true;
       });
 
+      console.log(`[AI Search] Matched ${matchedChannels.length} channels with filters:`, { search_keywords, category, language, country });
+
       const channelMap = new Map();
       matchedChannels.forEach(ch => channelMap.set(ch.id, ch));
 
-      // Match with active streams
+      // Match with streams — deduplicate by channel id so same channel
+      // doesn't appear multiple times just because it has multiple stream URLs.
+      const seenChannelIds = new Set();
       iptvOrgStreams.forEach(stream => {
-        if (channelMap.has(stream.channel)) {
+        if (channelMap.has(stream.channel) && !seenChannelIds.has(stream.channel)) {
+          seenChannelIds.add(stream.channel);
           const ch = channelMap.get(stream.channel);
           results.push({
             name: ch.name,
