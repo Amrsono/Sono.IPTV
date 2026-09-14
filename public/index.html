@@ -801,25 +801,21 @@
     const tabXtream = document.getElementById('tabXtream');
     const tabSettings = document.getElementById('tabSettings');
 
-    // In production, default to the deployed Railway backend directly to bypass Vercel serverless limitations
-    // (such as the 4.5MB payload size limit, 10s timeout, and proxy buffering of HLS video streams).
-    const DEFAULT_PROD_BACKEND = 'https://sono-iptv-backend-production.up.railway.app';
-    // Detect if running on local network (LAN IP or localhost) to use current origin as backend
+    // Detect the correct backend URL based on where the app is being served from.
+    // If the frontend is served by the same server as the backend (e.g. Render, local),
+    // use location.origin. Only fall back to a hardcoded URL for file:// protocol.
+    const DEFAULT_PROD_BACKEND = location.origin;
     function _detectBaseUrl() {
-      if (location.protocol === 'file:') return DEFAULT_PROD_BACKEND;
+      if (location.protocol === 'file:') return 'https://sono-iptv.onrender.com';
       var h = location.hostname;
-      // If we are served via HTTP, we are likely running locally or on a LAN server.
-      // Also catch standard loopback, local hostname patterns, and private IP subnets.
-      if (location.protocol === 'http:' ||
-          h === 'localhost' || 
-          h === '127.0.0.1' || 
-          h === '[::1]' ||
-          (h && !h.includes('.')) || 
-          /\.(local|lan|home|internal|test|localhost)$/i.test(h) ||
-          /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) {
-        return location.origin;
+      // Vercel deployments serve only the static frontend — backend is a separate service.
+      // In that case, the user must set a custom backend URL in Settings.
+      if (h && (h.endsWith('.vercel.app') || h === 'sono-iptv.vercel.app')) {
+        // Vercel: no backend here, user must configure one in Settings tab.
+        return 'https://sono-iptv.onrender.com';
       }
-      return DEFAULT_PROD_BACKEND;
+      // For all other cases (Render, localhost, LAN), the backend is the same origin.
+      return location.origin;
     }
     let storedBackendUrl = _safeStorage.getItem('sono_backend_url');
     const cookieBackendUrl = getCookie('sono_backend_url');
